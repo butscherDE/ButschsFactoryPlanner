@@ -1196,7 +1196,8 @@ function generator.beacons.generate()
                 allowed_module_categories = proto.allowed_module_categories,
                 module_limit = proto.module_inventory_size,
                 effectivity = proto.distribution_effectivity,
-                quality_bonus = proto.distribution_effectivity_bonus_per_quality_level,
+                distribution_effectivity_bonus_per_quality_level =
+                    proto.distribution_effectivity_bonus_per_quality_level,
                 profile = (#proto.profile == 0) and {1} or proto.profile,
                 energy_usage = energy_usage
             }
@@ -1328,9 +1329,9 @@ end
 ---@class FPQualityPrototype: FPPrototype
 ---@field data_type "qualities"
 ---@field rich_text LocalisedString
----@field level uint
 ---@field always_show boolean
----@field multiplier double
+---@field level uint
+---@field default_multiplier double
 ---@field beacon_power_usage_multiplier double
 ---@field mining_drill_resource_drain_multiplier double
 
@@ -1348,8 +1349,9 @@ function generator.qualities.generate()
                     sprite = sprite,
                     rich_text = {"", "[quality=" .. proto.name .. "] ",
                         generator_util.colored_rich_text(proto.localised_name, proto.color)},
-                    level = proto.level,
                     always_show = proto.draw_sprite_by_default,
+                    level = proto.level,
+                    default_multiplier = proto.default_multiplier,
                     beacon_power_usage_multiplier = proto.beacon_power_usage_multiplier,
                     mining_drill_resource_drain_multiplier = proto.mining_drill_resource_drain_multiplier
                 }

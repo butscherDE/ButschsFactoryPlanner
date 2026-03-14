@@ -62,8 +62,8 @@ end
 ---@return double effectivity
 function Beacon:overall_effectivity()
     local profile_mulitplier = self:profile_multiplier()
-    local effectivity = self.proto.effectivity + (self.quality_proto.level * self.proto.quality_bonus)
-    return self.amount * profile_mulitplier * effectivity
+    local effectivity_bonus = self.proto.distribution_effectivity_bonus_per_quality_level * self.quality_proto.level
+    return self.amount * profile_mulitplier * (self.proto.effectivity + effectivity_bonus)
 end
 
 function Beacon:summarize_effects()

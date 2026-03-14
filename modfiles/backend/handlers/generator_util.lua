@@ -268,7 +268,7 @@ end
 ---@return number base_value
 function generator_util.get_base_value(normal_quality_value)
     if normal_quality_value == nil then return nil end
-    return normal_quality_value / (1 + (prototypes.quality["normal"].level * 0.3))
+    return normal_quality_value / prototypes.quality["normal"].default_multiplier
 end
 
 -- Finds a sprite for the given entity prototype
