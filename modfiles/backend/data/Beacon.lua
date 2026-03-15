@@ -94,6 +94,13 @@ function Beacon:is_mono_beacon()
 end
 
 
+---@return double
+function Beacon:get_total_consumption()
+    return self.total_amount * self.proto.energy_usage * 60
+        * self.quality_proto.beacon_power_usage_multiplier
+end
+
+
 ---@param player LuaPlayer
 function Beacon:reset(player)
     local beacon_default = defaults.get(player, "beacons", nil)

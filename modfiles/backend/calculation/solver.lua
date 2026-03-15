@@ -132,12 +132,13 @@ local function generate_floor_data(player, factory, floor)
                 line_data.priority_product_proto = line.recipe.priority_product
                 line_data.machine_proto = machine.proto
                 line_data.machine_limit = {limit=machine.limit, force_limit=machine.force_limit}
+                line_data.machine_speed = machine:get_speed()
+                line_data.resource_drain_rate = machine:get_resource_drain_rate()
                 line_data.fuel_proto = machine.fuel and machine.fuel.proto or nil
                 line_data.pollutant_type = factory.parent.location_proto.pollutant_type
 
                 -- Boiler recipe energy
-                local prototype_category = machine.proto.prototype_category
-                if prototype_category == "boiler" then
+                if machine.proto.prototype_category == "boiler" then
                     local goal_temperature = line.recipe.proto.products[1].temperature
                     local fluid_name = line.recipe.proto.ingredients[1].name
                     local heat_capacity = prototypes.fluid[fluid_name].heat_capacity
@@ -145,28 +146,13 @@ local function generate_floor_data(player, factory, floor)
                     line_data.recipe_energy = (goal_temperature - input_temperature) * heat_capacity
                 end
 
-                -- Quality effects
-                local machine_speed = machine.proto.speed
-                local resource_drain_rate = machine.proto.resource_drain_rate or 1
-
-                if prototype_category == "mining_drill" then
-                    resource_drain_rate = resource_drain_rate
-                        * machine.quality_proto.mining_drill_resource_drain_multiplier
-                elseif prototype_category ~= nil then  -- anything non-custom
-                    machine_speed = machine_speed * machine.quality_proto.default_multiplier
-                end
-                line_data.machine_speed = machine_speed
-                line_data.resource_drain_rate = resource_drain_rate
-
                 -- Effects - update line with recipe effects here if applicable
                 machine:update_recipe_effects(player.force, factory)
                 line_data.total_effects = line.total_effects
 
                 -- Beacon total - can be calculated here, which is faster and simpler
-                local beacon = line.beacon
-                if beacon ~= nil and beacon.total_amount ~= nil then
-                    line_data.beacon_consumption = beacon.proto.energy_usage * beacon.total_amount * 60
-                        * beacon.quality_proto.beacon_power_usage_multiplier
+                if line.beacon ~= nil and line.beacon.total_amount ~= nil then
+                    line_data.beacon_consumption = line.beacon:get_total_consumption()
                 end
 
                 local fuel = machine.fuel

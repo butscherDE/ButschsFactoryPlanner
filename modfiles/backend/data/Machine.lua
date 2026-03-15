@@ -111,6 +111,32 @@ function Machine:update_recipe_effects(force, factory)
 end
 
 
+---@return double
+function Machine:get_speed()
+    local speed = self.proto.speed
+
+    local category = self.proto.prototype_category
+    if category == nil or category == "mining_drill" then
+        return speed
+    elseif category == "boiler" then  -- TODO check quality effects on all machine categories
+        return speed * self.quality_proto.default_multiplier
+    else  -- "assembling_machine" | "furnace" | "rocket_silo"
+        return speed * self.quality_proto.crafting_machine_speed_multiplier
+    end
+end
+
+---@return double
+function Machine:get_resource_drain_rate()
+    local resource_drain_rate = self.proto.resource_drain_rate or 1
+
+    if self.proto.prototype_category == "mining_drill" then
+        return resource_drain_rate * self.quality_proto.mining_drill_resource_drain_multiplier
+    else
+        return resource_drain_rate
+    end
+end
+
+
 function Machine:compile_fuel_filter()
     local compatible_fuels = {}
 

@@ -1334,6 +1334,7 @@ end
 ---@field default_multiplier double
 ---@field beacon_power_usage_multiplier double
 ---@field mining_drill_resource_drain_multiplier double
+---@field crafting_machine_speed_multiplier double
 
 ---@return NamedPrototypes<FPQualityPrototype>
 function generator.qualities.generate()
@@ -1353,7 +1354,8 @@ function generator.qualities.generate()
                     level = proto.level,
                     default_multiplier = proto.default_multiplier,
                     beacon_power_usage_multiplier = proto.beacon_power_usage_multiplier,
-                    mining_drill_resource_drain_multiplier = proto.mining_drill_resource_drain_multiplier
+                    mining_drill_resource_drain_multiplier = proto.mining_drill_resource_drain_multiplier,
+                    crafting_machine_speed_multiplier = proto.crafting_machine_speed_multiplier
                 }
                 insert_prototype(qualities, quality, nil)
             end
