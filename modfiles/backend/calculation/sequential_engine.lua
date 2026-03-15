@@ -134,8 +134,8 @@ local function update_line(line_data, aggregate, looped_fuel)
 
 
     -- Determine energy consumption (including potential fuel needs) and emissions
-    local energy_consumption, emissions = solver_util.determine_energy_consumption_and_emissions(
-        machine_proto, recipe_proto, fuel_proto, machine_count, total_effects, line_data.pollutant_type)
+    local energy_consumption, emissions = solver_util.determine_energy_consumption_and_emissions(machine_proto,
+        recipe_proto, fuel_proto, machine_count, line_data.energy_usage, total_effects, line_data.pollutant_type)
 
     local fuel_amount = nil
     if fuel_proto ~= nil then
