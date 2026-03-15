@@ -114,8 +114,8 @@ end
 ---@return double
 function Machine:get_speed()
     local speed = self.proto.speed
-
     local category = self.proto.prototype_category
+
     if category == nil or category == "mining_drill" then
         return speed
     elseif category == "boiler" then  -- TODO check quality effects on all machine categories
@@ -131,8 +131,24 @@ function Machine:get_resource_drain_rate()
 
     if self.proto.prototype_category == "mining_drill" then
         return resource_drain_rate * self.quality_proto.mining_drill_resource_drain_multiplier
-    else
+    else  -- "assembling_machine" | "furnace" | "rocket_silo" | "boiler"
         return resource_drain_rate
+    end
+end
+
+---@return uint16
+function Machine:get_module_limit()
+    local limit = self.proto.module_limit
+    local category = self.proto.prototype_category
+
+    if not self.proto.quality_affects_module_slots then
+        return limit
+    elseif category == nil or category == "boiler" then
+        return limit
+    elseif category == "mining_drill" then
+        return limit + self.quality_proto.mining_drill_module_slots_bonus
+    else  -- "assembling_machine" | "furnace" | "rocket_silo"
+        return limit + self.quality_proto.crafting_machine_module_slots_bonus
     end
 end
 

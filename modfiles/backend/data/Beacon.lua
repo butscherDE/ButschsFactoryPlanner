@@ -100,6 +100,17 @@ function Beacon:get_total_consumption()
         * self.quality_proto.beacon_power_usage_multiplier
 end
 
+---@return uint16
+function Beacon:get_module_limit()
+    local limit = self.proto.module_limit
+
+    if self.proto.quality_affects_module_slots then
+        return limit + self.quality_proto.beacon_module_slots_bonus
+    else
+        return limit
+    end
+end
+
 
 ---@param player LuaPlayer
 function Beacon:reset(player)

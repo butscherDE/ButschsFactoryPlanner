@@ -605,7 +605,8 @@ end
 ---@field effect_receiver EffectReceiver
 ---@field allowed_effects AllowedEffects
 ---@field allowed_module_categories { [string]: boolean }?
----@field module_limit integer
+---@field module_limit uint16
+---@field quality_affects_module_slots boolean?
 ---@field surface_conditions SurfaceCondition[]
 ---@field resource_drain_rate number?
 ---@field uses_force_mining_productivity_bonus boolean?
@@ -728,6 +729,7 @@ function generator.machines.generate()
             allowed_effects = proto.allowed_effects or {},
             allowed_module_categories = proto.allowed_module_categories,
             module_limit = (proto.module_inventory_size or 0),
+            quality_affects_module_slots = proto.quality_affects_module_slots,  -- can be nil
             surface_conditions = proto.surface_conditions,
             uses_force_mining_productivity_bonus = proto.uses_force_mining_productivity_bonus
         }
@@ -1160,9 +1162,10 @@ end
 ---@field built_by_item FPItemPrototype
 ---@field allowed_effects AllowedEffects
 ---@field allowed_module_categories { [string]: boolean }?
----@field module_limit uint
+---@field module_limit uint16
+---@field quality_affects_module_slots boolean
 ---@field effectivity double
----@field quality_bonus double
+---@field distribution_effectivity_bonus_per_quality_level double
 ---@field profile double[]
 ---@field energy_usage double
 
@@ -1195,6 +1198,7 @@ function generator.beacons.generate()
                 allowed_effects = proto.allowed_effects,
                 allowed_module_categories = proto.allowed_module_categories,
                 module_limit = proto.module_inventory_size,
+                quality_affects_module_slots = proto.quality_affects_module_slots,
                 effectivity = proto.distribution_effectivity,
                 distribution_effectivity_bonus_per_quality_level =
                     proto.distribution_effectivity_bonus_per_quality_level,
@@ -1335,6 +1339,9 @@ end
 ---@field beacon_power_usage_multiplier double
 ---@field mining_drill_resource_drain_multiplier double
 ---@field crafting_machine_speed_multiplier double
+---@field beacon_module_slots_bonus uint16
+---@field crafting_machine_module_slots_bonus uint16
+---@field mining_drill_module_slots_bonus uint16
 
 ---@return NamedPrototypes<FPQualityPrototype>
 function generator.qualities.generate()
@@ -1355,7 +1362,10 @@ function generator.qualities.generate()
                     default_multiplier = proto.default_multiplier,
                     beacon_power_usage_multiplier = proto.beacon_power_usage_multiplier,
                     mining_drill_resource_drain_multiplier = proto.mining_drill_resource_drain_multiplier,
-                    crafting_machine_speed_multiplier = proto.crafting_machine_speed_multiplier
+                    crafting_machine_speed_multiplier = proto.crafting_machine_speed_multiplier,
+                    beacon_module_slots_bonus = proto.beacon_module_slots_bonus,
+                    crafting_machine_module_slots_bonus = proto.crafting_machine_module_slots_bonus,
+                    mining_drill_module_slots_bonus = proto.mining_drill_module_slots_bonus
                 }
                 insert_prototype(qualities, quality, nil)
             end

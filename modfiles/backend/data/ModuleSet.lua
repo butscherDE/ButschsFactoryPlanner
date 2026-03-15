@@ -17,13 +17,14 @@ script.register_metatable("ModuleSet", ModuleSet)
 ---@param parent ModuledObject
 ---@return ModuleSet
 local function init(parent)
+    local module_limit = (parent.proto.simplified) and 0 or parent:get_module_limit()
+
     local object = Object.init({
         first = nil,
 
         module_count = 0,
-        -- 0 as placeholder for simplified parents
-        module_limit = parent.proto.module_limit or 0,
-        empty_slots = parent.proto.module_limit or 0,
+        module_limit = module_limit,
+        empty_slots = module_limit,
 
         parent = parent
     }, "ModuleSet", ModuleSet)  --[[@as ModuleSet]]
@@ -100,7 +101,7 @@ end
 
 ---@param features ModuleNormalizeFeatures
 function ModuleSet:normalize(features)
-    self.module_limit = self.parent.proto.module_limit
+    self.module_limit = self.parent:get_module_limit()
 
     if features.compatibility then self:verify_compatibility() end
     if features.trim then self:trim() end
