@@ -621,7 +621,7 @@ end
 ---@field combined_category string
 
 ---@alias EmissionsMap { [string]: double }
----@alias PrototypeCategory ("assembling_machine" | "furnace" | "rocket_silo" | "mining_drill" | "boiler")
+---@alias PrototypeCategory ("assembling_machine" | "furnace" | "rocket_silo" | "mining_drill" | "boiler" | "offshore_pump")
 
 ---@return NamedPrototypesWithCategory<FPMachinePrototype>
 function generator.machines.generate()
@@ -783,11 +783,23 @@ function generator.machines.generate()
                 end
             end
 
+        elseif proto.type == "boiler" then
+            local category, _, _ = generator_util.get_boiler_data(proto)
+            if category == nil then goto skip_boiler end
+
+            local machine = generate_category_entry(category, proto, "boiler")
+            if machine then
+                machine.speed = machine.energy_usage * 60
+                insert_machine(machine)
+            end
+
+            ::skip_boiler::
+
         elseif proto.type == "offshore-pump" then
             local fluid_box = proto.fluidbox_prototypes[1]
             local fixed_fluid = (fluid_box and fluid_box.filter) and fluid_box.filter.name or nil
             local category = (fixed_fluid) and ("offshore-pump-" .. fixed_fluid) or "offshore-pump"
-            local machine = generate_category_entry(category, proto, nil)
+            local machine = generate_category_entry(category, proto, "offshore_pump")
             if machine then
                 machine.speed = generator_util.get_base_value(proto.get_pumping_speed())
                 insert_machine(machine)
@@ -806,18 +818,6 @@ function generator.machines.generate()
             local size = proto.get_inventory_size(defines.inventory.chest) or 0
             local current_size = biggest_chest and biggest_chest.get_inventory_size(defines.inventory.chest) or 0
             if current_size < size then biggest_chest = proto end
-
-        elseif proto.type == "boiler" then
-            local category, _, _ = generator_util.get_boiler_data(proto)
-            if category == nil then goto skip_boiler end
-
-            local machine = generate_category_entry(category, proto, "boiler")
-            if machine then
-                machine.speed = machine.energy_usage * 60
-                insert_machine(machine)
-            end
-
-            ::skip_boiler::
         end
     end
 

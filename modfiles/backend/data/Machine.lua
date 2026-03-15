@@ -118,7 +118,7 @@ function Machine:get_speed()
 
     if category == nil or category == "mining_drill" then
         return speed
-    elseif category == "boiler" then
+    elseif category == "boiler" or category == "offshore_pump" then
         return speed * self.quality_proto.default_multiplier
     else  -- "assembling_machine" | "furnace" | "rocket_silo"
         return speed * self.quality_proto.crafting_machine_speed_multiplier
@@ -132,7 +132,7 @@ function Machine:get_energy_usage()
 
     if category == "boiler" then
         return energy_usage * self.quality_proto.default_multiplier
-    else  -- "assembling_machine" | "furnace" | "rocket_silo" | "mining_drill" | nil
+    else  -- "assembling_machine" | "furnace" | "rocket_silo" | "mining_drill" | "offshore_pump" | nil
         return energy_usage
     end
 end
@@ -143,7 +143,7 @@ function Machine:get_resource_drain_rate()
 
     if self.proto.prototype_category == "mining_drill" then
         return resource_drain_rate * self.quality_proto.mining_drill_resource_drain_multiplier
-    else  -- "assembling_machine" | "furnace" | "rocket_silo" | "boiler" | nil
+    else  -- "assembling_machine" | "furnace" | "rocket_silo" | "boiler"| "offshore_pump" | nil
         return resource_drain_rate
     end
 end
@@ -155,7 +155,7 @@ function Machine:get_module_limit()
 
     if not self.proto.quality_affects_module_slots then
         return limit
-    elseif category == nil or category == "boiler" then
+    elseif category == nil or category == "boiler" or category == "offshore_pump" then
         return limit
     elseif category == "mining_drill" then
         return limit + self.quality_proto.mining_drill_module_slots_bonus
