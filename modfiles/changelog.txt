@@ -4,10 +4,11 @@ Date: 00. 00. 0000
   Features:
     -
   Changes:
-    - Added support for mods definting their own quality percentage steps (#720)
+    - Added support for mods defining their own quality percentage steps (#720)
     - Added support for mods increasing module count with quality (#678)
     - Added support for mods increasing machine speed with quality
   Bugfixes:
+    - Fixed that machines with fixed recipes weren't restricted to only that recipe (#704)
     - Fixed that higher quality boilers didn't adjust fuel consumption correctly (#647)
     - Fixed that offshore pump output wouldn't rise with higher quality
 

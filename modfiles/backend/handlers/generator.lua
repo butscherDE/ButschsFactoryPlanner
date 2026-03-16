@@ -167,7 +167,19 @@ function generator.recipes.generate()
 
     local entity_filter = {{filter="hidden", invert=true}}
     for _, proto in pairs(prototypes.get_entity_filtered(entity_filter)) do
-        if proto.type == "resource" then
+        -- Recipes fixed to machines are duplicated with a special category
+        if proto.crafting_categories and proto.energy_usage and proto.fixed_recipe then
+            local recipe = recipes[proto.fixed_recipe]
+            if recipe ~= nil then
+                local category = proto.name .. "-using-" .. proto.fixed_recipe
+                local recipe_copy = ftable.deep_copy(recipe)
+                recipe_copy.name = recipe.name .. "-for-" .. proto.name
+                recipe_copy.categories = {[category] = true}
+                recipe_copy.custom = true
+                insert_prototype(recipes, recipe_copy, nil)
+            end
+
+        elseif proto.type == "resource" then
             local products = proto.mineable_properties.products
             if not products then goto incompatible_proto end
 
@@ -635,8 +647,8 @@ function generator.machines.generate()
         end
     end
 
-    -- Used to fill in used_by_items with proper references
     local item_prototypes = storage.prototypes.items["item"].members  ---@type { [string]: FPItemPrototype }
+    local recipe_prototypes = storage.prototypes.recipes ---@type { [string]: FPRecipePrototype }
 
     ---@param category string
     ---@param proto LuaEntityPrototype
@@ -724,7 +736,7 @@ function generator.machines.generate()
             emissions_per_joule = emissions_per_joule,
             emissions_per_second = proto.emissions_per_second or {},
             burner = burner,
-            built_by_item = item_prototypes[built_by_item],
+            built_by_item = item_prototypes[built_by_item],  -- set to internal prototype
             effect_receiver = generator_util.format_effect_receiver(proto),
             allowed_effects = proto.allowed_effects or {},
             allowed_module_categories = proto.allowed_module_categories,
@@ -764,14 +776,23 @@ function generator.machines.generate()
                     machine.module_limit = 0
                     insert_machine(machine)
                 end
+            end  -- silos are also added as normal machines to produce rocket parts
+
+            if proto.fixed_recipe then  -- fixed recipe machines get their own category
+                if recipe_prototypes[proto.fixed_recipe] ~= nil then
+                    local category = proto.name .. "-using-" .. proto.fixed_recipe
+                    local prototype_category = proto.type:gsub("-", "_")
+                    local machine = generate_category_entry(category, proto, prototype_category)
+                    if machine then insert_machine(machine) end
+                end
+            else  -- otherwise add machines as normal
+                for category, _ in pairs(proto.crafting_categories) do
+                    local prototype_category = proto.type:gsub("-", "_")
+                    local machine = generate_category_entry(category, proto, prototype_category)
+                    if machine then insert_machine(machine) end
+                end
             end
 
-            -- Silos are also added as normal to produce rocket parts
-            for category, _ in pairs(proto.crafting_categories) do
-                local prototype_category = proto.type:gsub("-", "_")
-                local machine = generate_category_entry(category, proto, prototype_category)
-                if machine then insert_machine(machine) end
-            end
 
         elseif proto.type == "mining-drill" then
             for category, _ in pairs(proto.resource_categories) do
@@ -830,10 +851,8 @@ function generator.machines.generate()
         end
     end
 
-    local combined_list = {}  -- set of every possible combined_category
-    local recipe_prototypes = storage.prototypes.recipes
-
     -- Create category for each combination of machines used by recipes
+    local combined_list = {}  -- set of every possible combined_category
     for _, recipe_proto in pairs(recipe_prototypes) do
         -- This removes invalid machine categories and sets the combined category
         generator_util.format_category_data(recipe_proto, combined_list, machine_categories)
