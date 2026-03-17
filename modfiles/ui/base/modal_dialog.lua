@@ -27,8 +27,8 @@ local function create_base_dialog(player, dialog_settings, modal_data)
 
             local searchfield = flow_title_bar.add{type="textfield", style="search_popup_textfield",
                 tags={mod="fp", on_gui_text_changed="modal_searchfield"}}
-            searchfield.style.width = 140
-            searchfield.style.top_margin = -3
+            searchfield.style.size = {150, 26}
+            searchfield.style.top_margin = -1
             modal_elements.search_textfield = searchfield
             modal_dialog.set_searchfield_state(player)
 

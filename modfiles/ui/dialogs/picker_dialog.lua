@@ -286,7 +286,8 @@ local function add_item_pane(parent_flow, modal_data, item_category, item)
     local flow_amount = create_flow()
     flow_amount.add{type="label", caption={"fp.pu_" .. item_category, 1}}
 
-    local item_choice_button = flow_amount.add{type="sprite-button", style="fp_sprite-button_inset"}
+    local item_choice_button = flow_amount.add{type="sprite-button", style="fp_sprite-button_inset",
+        tags={mod="fp", on_gui_click="picker_item_choice"}}
     item_choice_button.style.right_margin = 12
     modal_elements["item_choice_button"] = item_choice_button
 
@@ -439,6 +440,23 @@ local listeners = {}
 
 listeners.gui = {
     on_gui_click = {
+        {
+            name = "picker_item_choice",
+            handler = (function(player, _, _)
+                local cursor_item = util.cursor.parse_cursor_item(player)
+                if cursor_item == nil then return end
+
+                local item_proto = prototyper.util.find("items", cursor_item.name, "item")
+                if item_proto == nil or item_proto.hidden or item_proto.ingredient_only then
+                    util.cursor.create_flying_text(player, {"fp.picker_invalid_product", item_proto.localised_name})
+                else
+                    local factory = util.context.get(player, "Factory")  --[[@as Factory]]
+                    local enabled = (factory:find({proto=item_proto}) == nil)
+                    local tags = {item_id=item_proto.id, category_id=item_proto.category_id, enabled=enabled}
+                    handle_item_pick(player, tags)
+                end
+            end)
+        },
         {
             name = "select_picker_item_group",
             handler = (function(player, tags, _)
