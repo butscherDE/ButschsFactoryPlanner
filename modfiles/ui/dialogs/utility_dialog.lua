@@ -94,12 +94,10 @@ function utility_structures.components(player, modal_data)
 
                 if missing_amount > 0 then
                     table.insert(modal_data.missing_items, {
-                        type = "item",
                         name = proto.name,
                         quality = quality_proto.name,
-                        comparator = "=",
-                        count = missing_amount,
-                        required_count = required_amount
+                        required_amount = required_amount,
+                        missing_amount = missing_amount
                     })
                 end
 
@@ -304,6 +302,26 @@ local function handle_scope_change(player, tags, event)
     utility_structures.components(player, modal_data)
 end
 
+
+local function handle_item_combinator(player, _, event)
+    local missing_items = util.globals.modal_data(player).missing_items
+    local item_filters = {}
+
+    for _, item in pairs(missing_items) do
+        table.insert(item_filters, {
+            type = "item",
+            name = item.name,
+            quality = item.quality,
+            comparator = "=",
+            count = (event.shift) and item.missing_amount or item.required_amount
+        })
+    end
+    util.cursor.set_item_combinator(player, item_filters)
+
+    util.gui.close_dialog(player, "cancel")
+    main_dialog.toggle(player)
+end
+
 local function handle_item_request(player, _, _)
     local fly_text = util.cursor.create_flying_text
 
@@ -321,9 +339,9 @@ local function handle_item_request(player, _, _)
                 value = {
                     name = item.name,
                     quality = item.quality,
-                    comparator = item.comparator
+                    comparator = "="
                 },
-                min = item.required_count
+                min = item.required_amount
             })
         end
 
@@ -463,12 +481,7 @@ listeners.gui = {
         {
             name = "utility_item_combinator",
             timeout = 20,
-            handler = (function(player, _, _)
-                local missing_items = util.globals.modal_data(player).missing_items
-                util.cursor.set_item_combinator(player, missing_items)
-                util.gui.close_dialog(player, "cancel")
-                main_dialog.toggle(player)
-            end)
+            handler = handle_item_combinator
         },
         {
             name = "utility_request_items",

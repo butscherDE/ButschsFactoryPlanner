@@ -2,8 +2,9 @@
 Version: 0.00.00
 Date: 00. 00. 0000
   Features:
-    - Added the ability to use a cursor item to configure the picker dialog (#667)
+    - Implemented support for using a cursor item to configure the picker dialog (#667)
   Changes:
+    - Changed the utility dialog item combinator to offer both total and missing item options (#677)
     - Added support for mods defining their own quality percentage steps (#720)
     - Added support for mods increasing module count with quality (#678)
     - Added support for mods increasing machine speed with quality
