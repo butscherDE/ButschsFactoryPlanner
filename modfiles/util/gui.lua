@@ -180,6 +180,13 @@ function _gui.format_emissions(emissions, district)
     end
 end
 
+function _gui.calculate_satisfaction(satisfied_amount, actual_amount)
+    local satisfied_percentage = (satisfied_amount / actual_amount) * 100
+    local percentage_string = util.format.number(satisfied_percentage, 3)
+    local satisfaction_line = {"", "\n", {"fp.bold_label", (percentage_string .. "%")}, " ", {"fp.satisfied"}}
+    return satisfaction_line, percentage_string
+end
+
 
 local expression_variables = {k=1000, K=1000, m=1000000, M=1000000, g=1000000000, G=1000000000}
 

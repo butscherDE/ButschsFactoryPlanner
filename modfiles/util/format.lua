@@ -28,19 +28,18 @@ function _format.number(number, precision)
     end
 end
 
+local prefixes = {"", "kilo", "mega", "giga", "tera", "peta", "exa", "zetta", "yotta"}
+local units = {
+    ["W"] = {"fp.unit_watt"},
+    ["E/m"] = {"", {"fp.unit_emissions"}, "/", {"fp.unit_minute"}}
+}
+
 -- Returns string representing the given power
 ---@param value number
 ---@param unit string
 ---@param precision integer
 ---@return LocalisedString formatted_number
 function _format.SI_value(value, unit, precision)
-    local prefixes = {"", "kilo", "mega", "giga", "tera", "peta", "exa", "zetta", "yotta"}
-    local units = {
-        ["W"] = {"fp.unit_watt"},
-        ["J"] = {"fp.unit_joule"},
-        ["E/m"] = {"", {"fp.unit_emissions"}, "/", {"fp.unit_minute"}}
-    }
-
     local sign = (value >= 0) and "" or "-"
     value = math.abs(value) or 0
 

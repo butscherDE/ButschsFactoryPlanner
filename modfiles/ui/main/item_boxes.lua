@@ -47,36 +47,40 @@ local function refresh_item_box(player, factory, show_floor_items, item_category
     end
 
     local floor = (show_floor_items) and util.context.get(player, "Floor") or factory.top_floor
-    local action = (item_category == "product" and show_floor_items and floor.level > 1)
+    local default_action = (item_category == "product" and show_floor_items and floor.level > 1)
         and "act_on_floor_product" or ("act_on_top_level_" .. item_category)
-    local real_products = (item_category == "product" and (not show_floor_items or floor.level == 1))
-    local action_tooltip = MODIFIER_ACTIONS[action].tooltip
-
-    local table_item_count = 0
     local default_style = (item_category == "byproduct") and "flib_slot_button_red" or "flib_slot_button_default"
 
+    local table_item_count = 0
     local function build_item(item, index)
-        local required_amount = (item.class == "Product") and item:get_required_amount() or nil
-        local amount, number_tooltip = item_views.process_item(player, item, required_amount, nil)
-        if amount == -1 then return end  -- an amount of -1 means it was below the margin of error
-
-        local style = default_style
+        local amount, number_tooltip = nil, nil
         local satisfaction_line = ""  ---@type LocalisedString
-        if item.class == "Product" and amount ~= nil and amount ~= "0" then
-            local satisfied_percentage = (item.amount / required_amount) * 100
-            local percentage_string = util.format.number(satisfied_percentage, 3)
-            satisfaction_line = {"", "\n", {"fp.bold_label", (percentage_string .. "%")}, " ", {"fp.satisfied"}}
+        local style = default_style
+        local action = default_action
 
-            if percentage_string == "0" then style = "flib_slot_button_red"
-            elseif percentage_string == "100" then style = "flib_slot_button_green"
-            else style = "flib_slot_button_yellow" end
-        elseif item.proto.type == "entity" then
-            style = "flib_slot_button_transparent"
+        if item.proto.type == "entity" and item.proto.name == "custom-heat-power" then
+            number_tooltip = {"fp.heat_unit", util.format.SI_value(item.amount, "W", 3)}
+
+            style = "flib_slot_button_cyan"
+            action = "act_on_top_level_special"
+        else
+            local required_amount = (item.class == "Product") and item:get_required_amount() or nil
+            amount, number_tooltip = item_views.process_item(player, item, required_amount, nil)
+            if amount == -1 then return end  -- an amount of -1 means it was below the margin of error
+
+            if item.class == "Product" and amount ~= nil and amount ~= "0" then
+                local satisfaction_line, percentage_string = util.gui.calculate_satisfaction(
+                    item.amount, required_amount)
+
+                if percentage_string == "0" then style = "flib_slot_button_red"
+                elseif percentage_string == "100" then style = "flib_slot_button_green"
+                else style = "flib_slot_button_yellow" end
+            end
         end
 
         local name_line = {"fp.tt_title", item.proto.localised_name}
         local number_line = (number_tooltip) and {"", "\n", number_tooltip} or ""
-        local tooltip = {"", name_line, number_line, satisfaction_line, "\n", action_tooltip}
+        local tooltip = {"", name_line, number_line, satisfaction_line, "\n", MODIFIER_ACTIONS[action].tooltip}
 
         local button = table_items.add{type="sprite-button", number=amount, style=style, sprite=item.proto.sprite,
             tags={mod="fp", on_gui_click=action, item_category=item_category, item_id=item.id, item_index=index,
@@ -85,6 +89,8 @@ local function refresh_item_box(player, factory, show_floor_items, item_category
         tooltips.item_boxes[button.index] = tooltip
         table_item_count = table_item_count + 1
     end
+
+    local real_products = (item_category == "product" and (not show_floor_items or floor.level == 1))
 
     if real_products then
         for product in factory:iterator() do
@@ -190,7 +196,7 @@ local function put_ingredients_into_cursor(player, _, _)
     local ingredient_filters = {}
     for _, ingredient in pairs(relevant_floor.ingredients) do
         local amount = ingredient.amount * preferences.timescale
-        if amount > MAGIC_NUMBERS.margin_of_error then
+        if amount > MAGIC_NUMBERS.margin_of_error and ingredient.proto.type ~= "entity" then
             table.insert(ingredient_filters, {
                 type = ingredient.proto.type,
                 name = ingredient.proto.base_name or ingredient.proto.name,
@@ -299,6 +305,13 @@ listeners.gui = {
                 copy = {shortcut="shift-right"},
                 add_to_cursor = {shortcut="alt-right"},
                 factoriopedia = {shortcut="alt-left"}
+            },
+            handler = handle_item_button_click
+        },
+        {
+            name = "act_on_top_level_special",
+            actions_table = {
+                add_recipe = {shortcut="left", limitations={archive_open=false}, show=true}
             },
             handler = handle_item_button_click
         },

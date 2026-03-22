@@ -669,7 +669,7 @@ function matrix_engine.get_line_aggregate(line_data, player_index, floor_id, mac
         total_effects, line_data.pollutant_type)
 
     local fuel, fuel_amount = nil, nil
-    if fuel_proto ~= nil then  -- Seeing a fuel_proto here means it needs to be re-calculated
+    if line_data.machine_proto.energy_type == "burner" then
         fuel_amount = solver_util.determine_fuel_amount(energy_consumption, line_data.machine_proto.burner,
             fuel_proto.fuel_value)
 
@@ -677,16 +677,22 @@ function matrix_engine.get_line_aggregate(line_data, player_index, floor_id, mac
         structures.class.add(line_aggregate.Ingredient, fuel, fuel_amount)
 
         if fuel_proto.burnt_result then
-            local burnt = {type="item", name=fuel_proto.burnt_result, amount=fuel_amount}
-            local burnt_key = matrix_engine.get_item_key(burnt.type, burnt.name)
+            local burnt_result = {type="item", name=fuel_proto.burnt_result, amount=fuel_amount}
+            local burnt_key = matrix_engine.get_item_key(burnt_result.type, burnt_result.name)
             if factory_metadata ~= nil and (factory_metadata.byproducts[burnt_key] or free_variables["item_"..burnt_key]) then
-            structures.class.add(line_aggregate.Byproduct, burnt, fuel_amount)
+            structures.class.add(line_aggregate.Byproduct, burnt_result, fuel_amount)
             else
-                structures.class.add(line_aggregate.Product, burnt, fuel_amount)
+                structures.class.add(line_aggregate.Product, burnt_result, fuel_amount)
             end
         end
 
         energy_consumption = 0  -- set electrical consumption to 0 when fuel is used
+
+    elseif line_data.machine_proto.energy_type == "heat" then
+        local heat_item = {type="entity", name="custom-heat-power", amount=energy_consumption}
+        structures.class.add(line_aggregate.Ingredient, heat_item)
+
+        energy_consumption = 0  -- set electrical consumption to 0 when heat is used
 
     elseif line_data.machine_proto.energy_type == "void" then
         energy_consumption = 0  -- set electrical consumption to 0 while still polluting

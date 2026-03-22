@@ -46,12 +46,13 @@ end
 ---@param item_type "products" | "ingredients"
 ---@return RecipeMap
 local function recipe_map_from(item_type)
-    local map = {}  ---@type RecipeMap
+    -- There is always only 3 categories (item, fluid, entity)
+    local map = {[1] = {}, [2] = {}, [3] = {}}  ---@type RecipeMap
 
     local function add(item_proto, recipe_id)
-        map[item_proto.category_id] = map[item_proto.category_id] or {}
-        map[item_proto.category_id][item_proto.id] = map[item_proto.category_id][item_proto.id] or {}
-        map[item_proto.category_id][item_proto.id][recipe_id] = true
+        local category = map[item_proto.category_id]
+        category[item_proto.id] = category[item_proto.id] or {}
+        category[item_proto.id][recipe_id] = true
     end
 
     for _, recipe in pairs(storage.prototypes.recipes) do

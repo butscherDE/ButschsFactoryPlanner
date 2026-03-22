@@ -31,7 +31,7 @@ local function refresh_defaults_frame(player)
     modal_elements.machine_all.enabled = not equals_all_machines
 
     -- Fuel
-    local fuel_required = (machine.proto.burner ~= nil)
+    local fuel_required = (machine.proto.energy_type == "burner")
     local fuel_tooltip = {"fp.machine_no_fuel_required"}  ---@type LocalisedString
     local equals_fuel, equals_all_fuels = false, false
     if fuel_required then
@@ -96,17 +96,17 @@ local function refresh_fuel_frame(player)
     local modal_elements = modal_data.modal_elements
     local machine = modal_data.object
 
-    local burner = machine.proto.burner
-    modal_elements.fuel_label.visible = (burner == nil)
+    local burns_fuel = machine.proto.enery_type == "burner"
+    modal_elements.fuel_label.visible = (not burns_fuel)
     modal_elements.fuel_button_flow.clear()
 
-    if burner == nil then return end
+    if not burns_fuel then return end
 
-    local fuel_proto = machine.fuel.proto
+    local burner = machine.proto.burner
     local elem_type = (burner and burner.categories["fluid-fuel"]) and "fluid" or "item"
 
     modal_elements.fuel_button_flow.add{type="choose-elem-button", elem_type=elem_type,
-        [elem_type] = fuel_proto.name, elem_filters=machine:compile_fuel_filter(),
+        [elem_type]=machine.fuel.proto.name, elem_filters=machine:compile_fuel_filter(),
         tags={mod="fp", on_gui_elem_changed="choose_fuel"}, style="fp_sprite-button_inset"}
 end
 

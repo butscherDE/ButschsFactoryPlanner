@@ -199,7 +199,7 @@ local function update_object_items(object, item_category, item_results)
             item_proto = prototyper.util.find("items", item_proto.base_name, "fluid")
         end
 
-        if object.class ~= "Floor" or item_proto.type ~= "entity" then
+        if object.class ~= "Floor" or item_proto.type ~= "entity" or SPECIAL_ITEMS[item_proto.name] then
             table.insert(item_list, {proto=item_proto, amount=item_result.amount})
         end
     end

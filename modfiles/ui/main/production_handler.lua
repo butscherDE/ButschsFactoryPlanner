@@ -250,7 +250,6 @@ local function handle_item_click(player, tags, action)
         util.gui.run_refresh(player, "factory")
 
     elseif action == "add_recipe_to_end" or action == "add_recipe_below" then
-        if item.proto.type == "entity" then return end
         local production_type = (tags.item_category == "byproduct") and "consume" or "produce"
         local add_after_line_id = (action == "add_recipe_below") and line.id or nil
 
@@ -282,8 +281,6 @@ local function handle_item_click(player, tags, action)
             category_id=item.proto.category_id, name=item.proto.name}})
 
     elseif action == "copy" then
-        if item.proto.type == "entity" then return end
-
         local proto = item.proto
         if item.proto.type == "fluid" and line.class == "Line" then
             local temperature = line.recipe.temperatures[item.proto.name]
@@ -295,7 +292,6 @@ local function handle_item_click(player, tags, action)
         util.clipboard.copy(player, copyable_item)
 
     elseif action == "paste" then
-        if item.proto.type == "entity" then return end
         if line.class ~= "Line" then return end
 
         -- Custom wrapper to paste onto since SimpleItem is not a real object
@@ -325,13 +321,11 @@ local function handle_item_click(player, tags, action)
         util.clipboard.paste(player, target)
 
     elseif action == "add_to_cursor" then
-        if item.proto.type == "entity" then return end
         util.cursor.handle_item_click(player, item.proto, item.amount)
 
     elseif action == "factoriopedia" then
         local name = item.proto.name
-        if item.proto.type == "entity" then name = name:gsub("custom%-", "")
-        elseif item.proto.temperature then name = item.proto.base_name end
+        if item.proto.temperature then name = item.proto.base_name end
         player.open_factoriopedia_gui(prototypes[item.proto.type][name])
     end
 end
@@ -509,6 +503,17 @@ listeners.gui = {
                 factoriopedia = {shortcut="alt-left"}
             },
             handler = handle_fuel_click
+        },
+        {
+            name = "act_on_line_special",
+            actions_table = {
+                add_recipe_to_end = {shortcut="left", limitations={archive_open=false}, show=true},
+                add_recipe_below = {limitations={archive_open=false}}
+            },
+            handler = (function(player, tags, action)
+                tags.item_category = "ingredient"  -- TODO
+                handle_item_click(player, tags, action)
+            end)
         }
     },
     on_gui_checked_state_changed = {

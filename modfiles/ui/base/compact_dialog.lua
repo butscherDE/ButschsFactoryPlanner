@@ -178,39 +178,51 @@ local function add_item_flow(line, relevant_line, item_category, button_color, m
 
     for index, item in pairs(line[item_category .. "s"]) do
         local proto, type = item.proto, item.proto.type
-        -- items/s/machine does not make sense for lines with subfloors, show items/s instead
-        local machine_count = (line.class == "Line") and line.machine.amount or nil
-        local amount, number_tooltip = item_views.process_item(metadata.player, item, nil, machine_count)
-        if amount == -1 then goto skip_item end  -- an amount of -1 means it was below the margin of error
 
-        local style, enabled = "flib_slot_button_" .. button_color .. "_small"
-        if relevant_line.done then style = "flib_slot_button_grayscale_small" end
-        local name_line, temperature_line = {"", {"fp.tt_title", {"", proto.localised_name}}}, ""
+        local amount, number_tooltip = nil, nil
+        button_color = (relevant_line.done) and "grayscale" or button_color
 
-        if type == "entity" then
-            style = (relevant_line.done) and "flib_slot_button_disabled_grayscale_small"
-                or "flib_slot_button_disabled_small"
-        elseif type == "fluid" and item_category == "ingredient" and line.class ~= "Floor" then
-            local temperature_data = line.recipe.temperature_data[proto.name]  -- exists for any fluid ingredient
-            table.insert(name_line, temperature_data.annotation)
+        local name_line, temperature_line, action_line = {"", {"fp.tt_title", {"", proto.localised_name}}}, "", ""
+        local tags = {mod="fp", line_id=line.id, item_category=item_category .. "s", item_index=index,
+            on_gui_hover="hover_compact_item", on_gui_leave="leave_compact_item", context="compact_dialog"}
 
-            local temperature = line.recipe.temperatures[proto.name]
-            if temperature == nil then
-                style = "flib_slot_button_purple_small"
-                temperature_line = {"fp.no_temperature_configured"}
+        if type == "entity" and item.proto.name == "custom-heat-power" then
+            number_tooltip = {"fp.heat_unit", util.format.SI_value(item.amount, "W", 3)}
+
+            button_color = "cyan"
+        else
+            -- items/s/machine does not make sense for lines with subfloors, show items/s instead
+            local machine_count = (line.class == "Line") and line.machine.amount or nil
+            amount, number_tooltip = item_views.process_item(metadata.player, item, nil, machine_count)
+            if amount == -1 then goto skip_item end  -- an amount of -1 means it was below the margin of error
+
+            if type == "entity" then
+                button_color = (relevant_line.done) and "disabled_grayscale" or "disabled"
             else
-                temperature_line = {"fp.configured_temperature", temperature}
+                tags.on_gui_click = "act_on_compact_item"
+                action_line = {"", "\n", metadata.action_tooltips["act_on_compact_item"]}
+
+                if type == "fluid" and item_category == "ingredient" and line.class ~= "Floor" then
+                    local temperature_data = line.recipe.temperature_data[proto.name]
+                    table.insert(name_line, temperature_data.annotation)
+
+                    local temperature = line.recipe.temperatures[proto.name]
+                    if temperature == nil then
+                        button_color = "purple"
+                        temperature_line = {"fp.no_temperature_configured"}
+                    else
+                        temperature_line = {"fp.configured_temperature", temperature}
+                    end
+                end
             end
         end
 
         local number_line = (number_tooltip) and {"", "\n", number_tooltip} or ""
-        local tooltip = {"", name_line, temperature_line, number_line, "\n",
-            metadata.action_tooltips["act_on_compact_item"]}
+        local tooltip = {"", name_line, temperature_line, number_line, action_line}
+        local style = "flib_slot_button_" .. button_color .. "_small"
 
         local button = item_table.add{type="sprite-button", sprite=proto.sprite, number=amount,
-            tags={mod="fp", on_gui_click="act_on_compact_item", line_id=line.id, item_category=item_category .. "s",
-            item_index=index, on_gui_hover="hover_compact_item", on_gui_leave="leave_compact_item",
-            context="compact_dialog"}, style=style, mouse_button_filter={"left-and-right"}, raise_hover_events=true}
+            tags=tags, style=style, mouse_button_filter={"left-and-right"}, raise_hover_events=true}
         metadata.tooltips[button.index] = tooltip
 
         item_buttons[type] = item_buttons[type] or {}
@@ -312,17 +324,28 @@ local function refresh_compact_header(player, factory)
     local show_floor_items = player_table.preferences.show_floor_items
     local relevant_floor = (show_floor_items) and current_floor or factory.top_floor
     for index, ingredient in pairs(relevant_floor.ingredients) do
-        local amount, number_tooltip = item_views.process_item(player, ingredient, nil, nil)
-        if amount == -1 then goto skip_ingredient end  -- an amount of -1 means it was below the margin of error
+        local amount, number_tooltip = nil, nil
+        local style, action_line = nil, ""
+        local tags = {mod="fp", floor_id=relevant_floor.id, item_index=index, on_gui_hover="hover_compact_item",
+            on_gui_leave="leave_compact_item", context="compact_dialog"}
 
-        local name_line = {"fp.tt_title", ingredient.proto.localised_name}
+        if ingredient.proto.type == "entity" and ingredient.proto.name == "custom-heat-power" then
+            number_tooltip = {"fp.heat_unit", util.format.SI_value(ingredient.amount, "W", 3)}
+
+            style = "flib_slot_button_cyan"
+        else
+            amount, number_tooltip = item_views.process_item(player, ingredient, nil, nil)
+            if amount == -1 then goto skip_ingredient end  -- an amount of -1 means it was below the margin of error
+
+            tags.on_gui_click = "act_on_compact_ingredient"
+            action_line = {"", "\n", MODIFIER_ACTIONS["act_on_compact_item"].tooltip}
+            style = "flib_slot_button_default"
+        end
+
         local number_line = (number_tooltip) and {"", "\n", number_tooltip} or ""
-        local tooltip = {"", name_line, number_line, "\n", MODIFIER_ACTIONS["act_on_compact_item"].tooltip}
-        local style = "flib_slot_button_default"
+        local tooltip = {"", {"fp.tt_title", ingredient.proto.localised_name}, number_line, action_line}
 
-        local button = table_items.add{type="sprite-button", number=amount, tooltip=tooltip,
-            tags={mod="fp", on_gui_click="act_on_compact_ingredient", floor_id=relevant_floor.id, item_index=index,
-            on_gui_hover="hover_compact_item", on_gui_leave="leave_compact_item", context="compact_dialog"},
+        local button = table_items.add{type="sprite-button", number=amount, tooltip=tooltip, tags=tags,
             sprite=ingredient.proto.sprite, style=style, mouse_button_filter={"left-and-right"},
             raise_hover_events=true}
         player_table.ui_state.tooltips[button.index] = tooltip

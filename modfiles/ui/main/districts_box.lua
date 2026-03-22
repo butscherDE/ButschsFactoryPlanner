@@ -90,21 +90,31 @@ local function build_items_flow(player, parent, district)
 
     for item in district.item_set:iterator() do
         local relevant_table = (item.overall == "production") and prod_table or ingr_table
-        local action = (item.overall == "production") and "act_on_district_product" or "act_on_district_ingredient"
-        local action_tooltip = MODIFIER_ACTIONS[action].tooltip
-
-        local diff_string, amount_tooltip = item_views.process_item(player, item, item.abs_diff, nil)
+        local action, style = nil, nil
 
         local total_amount = item[item.overall].amount
-        local total_string, total_tooltip = item_views.process_item(player, item, total_amount, nil)
+        local diff_string, amount_tooltip = nil, nil
+        local total_tooltip = nil
+
+        if item.proto.type == "entity" and item.proto.name == "custom-heat-power" then
+            action = "act_on_district_special"
+            style = "flib_slot_button_cyan"
+
+            amount_tooltip = {"fp.heat_unit", util.format.SI_value(item.abs_diff, "W", 3)}
+            total_tooltip = {"fp.heat_unit", util.format.SI_value(total_amount, "W", 3)}
+        else
+            action = (item.overall == "production") and "act_on_district_product" or "act_on_district_ingredient"
+            local colors = color_map[item.overall]
+            local style = (item.abs_diff ~= total_amount) and colors.half or colors.full
+
+            diff_string, amount_tooltip = item_views.process_item(player, item, item.abs_diff, nil)
+            _, total_tooltip = item_views.process_item(player, item, total_amount, nil)
+        end
 
         local title_line = {"fp.tt_title", item.proto.localised_name}
         local diff_line = {"fp.item_amount_" .. item.overall, amount_tooltip}
         local total_line = {"fp.item_amount_total", total_tooltip}
-        local tooltip = {"", title_line, diff_line, total_line, "\n", action_tooltip}
-
-        local colors = color_map[item.overall]
-        local style = (item.abs_diff ~= total_amount) and colors.half or colors.full
+        local tooltip = {"", title_line, diff_line, total_line, "\n", MODIFIER_ACTIONS[action].tooltip}
 
         local button = relevant_table.add{type="sprite-button", number=diff_string, style=style,
             sprite=item.proto.sprite, tags={mod="fp", on_gui_click=action,
@@ -354,6 +364,13 @@ listeners.gui = {
             },
             handler = handle_item_button_click
         },
+        {
+            name = "act_on_district_special",
+            actions_table = {
+                create_factory = {shortcut="left", show=true}
+            },
+            handler = handle_item_button_click
+        }
     },
     on_gui_confirmed = {
         {

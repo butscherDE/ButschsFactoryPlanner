@@ -431,6 +431,10 @@ end
 ---@field ingredient_only boolean
 ---@field temperature float?
 
+SPECIAL_ITEMS = {
+    ["custom-heat-power"] = true
+}
+
 ---@return NamedPrototypesWithCategory<FPItemPrototype>
 function generator.items.generate()
     local items = {}   ---@type NamedPrototypesWithCategory<FPItemPrototype>
@@ -483,17 +487,6 @@ function generator.items.generate()
         end
     end
 
-    -- Only need one square item for all agricultural towers
-    custom_items["custom-agriculture-square"] = {
-        name = "custom-agriculture-square",
-        localised_name = {"fp.agriculture_square"},
-        sprite = "fp_agriculture_square",
-        hidden = true,
-        order = "z",
-        fixed_unit = {"fp.agriculture_unit"}
-    }
-    generator_util.add_default_groups(custom_items["custom-agriculture-square"])
-
     if SPACE_TRAVEL then
         -- Only need one rocket item for all silos/recipes
         local rocket_recipe = {
@@ -501,7 +494,7 @@ function generator.items.generate()
             localised_name = {"", {"entity-name.rocket"}, " ", {"fp.launch_recipe"}},
             sprite = "fp_silo_rocket",
             hidden = false,
-            order = "z"
+            order = "z-a"
         }
         local vanilla_parts_recipe = prototypes.recipe["rocket-part"]
         if vanilla_parts_recipe then  -- make it nicer for vanilla at least
@@ -512,6 +505,25 @@ function generator.items.generate()
         end
         custom_items["custom-silo-rocket"] = rocket_recipe
     end
+
+    custom_items["custom-agriculture-square"] = {
+        name = "custom-agriculture-square",
+        localised_name = {"fp.agriculture_square"},
+        sprite = "fp_agriculture_square",
+        hidden = true,
+        order = "z-b",
+        fixed_unit = {"fp.agriculture_unit"}
+    }
+    generator_util.add_default_groups(custom_items["custom-agriculture-square"])
+
+    custom_items["custom-heat-power"] = {
+        name = "custom-heat-power",
+        localised_name = {"fp.heat_power"},
+        sprite = "fp_heat_power",
+        hidden = true,
+        order = "z-c2"
+    }
+    generator_util.add_default_groups(custom_items["custom-heat-power"])
 
 
     local relevant_items = {item={}, fluid={}, entity={}}
@@ -557,6 +569,9 @@ function generator.items.generate()
         end
     end
 
+    -- No recipes use these so they need to be added manually
+    relevant_items["entity"]["custom-heat-power"] = {ingredient_only=true}
+
     for type, item_table in pairs(relevant_items) do
         for item_name, item_details in pairs(item_table) do
             local proto_name = item_details.base_name or item_name
@@ -584,7 +599,7 @@ function generator.items.generate()
                 item.group = proto.group
                 item.subgroup = proto.subgroup
                 item.tooltip = proto.localised_name
-                item.fixed_unit = proto.fixed_unit or nil
+                item.fixed_unit = proto.fixed_unit -- can be nil
             elseif type == "fluid" and item.temperature then
                 item.localised_name = {"fp.fluid_with_temperature", proto.localised_name, item.temperature}
                 item.tooltip = item.localised_name
@@ -607,7 +622,7 @@ end
 ---@field ingredient_limit integer
 ---@field fluid_channels FluidChannels
 ---@field speed double
----@field energy_type "burner" | "electric" | "void"
+---@field energy_type "burner" | "electric" | "heat" | "void"
 ---@field energy_usage double
 ---@field energy_drain double
 ---@field emissions_per_joule EmissionsMap
@@ -648,7 +663,7 @@ function generator.machines.generate()
     end
 
     local item_prototypes = storage.prototypes.items["item"].members  ---@type { [string]: FPItemPrototype }
-    local recipe_prototypes = storage.prototypes.recipes ---@type { [string]: FPRecipePrototype }
+    local recipe_prototypes = storage.prototypes.recipes  ---@type { [string]: FPRecipePrototype }
 
     ---@param category string
     ---@param proto LuaEntityPrototype
@@ -673,8 +688,10 @@ function generator.machines.generate()
         -- There can technically be more than one, but bots use the first one, so I do too
         local built_by_item = (proto.items_to_place_this) and proto.items_to_place_this[1].name or nil
 
-        -- Determine the details of this entities energy source
-        local burner_prototype, fluid_burner_prototype = proto.burner_prototype, proto.fluid_energy_source_prototype
+        local burner_prototype = proto.burner_prototype
+        local fluid_burner_prototype = proto.fluid_energy_source_prototype
+
+        -- Determine the details of this entity's energy source
         if burner_prototype then
             energy_type = "burner"
             emissions_per_joule = burner_prototype.emissions_per_joule
@@ -700,6 +717,10 @@ function generator.machines.generate()
             energy_type = "electric"
             energy_drain = proto.electric_energy_source_prototype.drain
             emissions_per_joule = proto.electric_energy_source_prototype.emissions_per_joule
+
+        elseif proto.heat_energy_source_prototype then
+            energy_type = "heat"
+            emissions_per_joule = proto.heat_energy_source_prototype.emissions_per_joule
 
         elseif proto.void_energy_source_prototype then
             energy_type = "void"
@@ -958,7 +979,7 @@ function generator.fuels.generate()
     -- Create category for each combination of fuels used by machines
     for _, machine_category in pairs(machine_prototypes) do
         for _, machine_proto in pairs(machine_category.members) do
-            if machine_proto.burner then
+            if machine_proto.energy_type == "burner" then
                 -- This removes invalid fuel categories and sets the combined category
                 generator_util.format_category_data(machine_proto.burner, combined_list, fuel_categories)
 

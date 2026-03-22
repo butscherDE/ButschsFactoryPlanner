@@ -138,7 +138,7 @@ local function update_line(line_data, aggregate, looped_fuel)
         recipe_proto, fuel_proto, machine_count, line_data.energy_usage, total_effects, line_data.pollutant_type)
 
     local fuel_amount = nil
-    if fuel_proto ~= nil then
+    if machine_proto.energy_type == "burner" then
         fuel_amount = solver_util.determine_fuel_amount(energy_consumption,
             machine_proto.burner, fuel_proto.fuel_value)
         local fuel_item = line_data.fuel_item
@@ -175,12 +175,19 @@ local function update_line(line_data, aggregate, looped_fuel)
         -- Fuel itself is set via a special amount variable on the line itself
 
         if fuel_proto.burnt_result then
-            local burnt = {type="item", name=fuel_proto.burnt_result, amount=fuel_amount}
-            structures.class.add(Byproduct, burnt)  -- add to line
-            structures.class.add(aggregate.Byproduct, burnt)  -- add to floor
+            local burnt_result = {type="item", name=fuel_proto.burnt_result, amount=fuel_amount}
+            structures.class.add(Byproduct, burnt_result)  -- add to line
+            structures.class.add(aggregate.Byproduct, burnt_result)  -- add to floor
         end
 
         energy_consumption = 0  -- set electrical consumption to 0 when fuel is used
+
+    elseif machine_proto.energy_type == "heat" then
+        local heat_item = {type="entity", name="custom-heat-power", amount=energy_consumption}
+        structures.class.add(Ingredient, heat_item)  -- add to line
+        structures.class.add(aggregate.Ingredient, heat_item)  -- add to floor
+
+        energy_consumption = 0  -- set electrical consumption to 0 when heat is used
 
     elseif machine_proto.energy_type == "void" then
         energy_consumption = 0  -- set electrical consumption to 0 while still polluting
