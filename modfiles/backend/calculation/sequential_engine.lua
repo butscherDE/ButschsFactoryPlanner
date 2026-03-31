@@ -9,8 +9,9 @@ local function update_line(line_data, aggregate, looped_fuel)
     local machine_proto = line_data.machine_proto
     local total_effects = line_data.total_effects
 
-    local relevant_products, byproducts = {}, {}
-    local fuel_proto, self_feeding, original_aggregate = line_data.fuel_proto, false, nil
+    local relevant_products, byproducts, ingredients = {}, {}, line_data.ingredients
+    local self_feeding, original_aggregate, fuel_byproduct = false, nil, nil
+    local fuel_proto = line_data.fuel_proto
 
     -- Determine relevant products
     for _, product in pairs(recipe_proto.products) do
@@ -19,26 +20,28 @@ local function update_line(line_data, aggregate, looped_fuel)
 
         -- Prepare for this line producing its own fuel
         if looped_fuel == nil and fuel_proto ~= nil then  -- don't loop if this already is the loop
-            if product.type == fuel_proto.type and product.name == fuel_proto.name then
+            if product.type == fuel_proto.type and product.name == line_data.fuel_name then
                 self_feeding = true
                 if is_product then  -- conserve aggregate reference if we'll restart the calculation
                     original_aggregate = aggregate
                     aggregate = ftable.deep_copy(aggregate)
+                else  -- retain byproduct item for later
+                    fuel_byproduct = product
                 end
             end
         end
     end
 
-    -- Determine production ratio
-    local production_ratio = 0
-
     -- Determines the production ratio that would be needed to fully satisfy the given product
     local function determine_production_ratio(relevant_product)
         local demand = aggregate.Ingredient[relevant_product.type][relevant_product.name]
         local prodded_amount = solver_util.determine_prodded_amount(relevant_product,
-            total_effects, recipe_proto.maximum_productivity)
+        total_effects, recipe_proto.maximum_productivity)
         return (demand * (line_data.percentage / 100)) / prodded_amount
     end
+
+    -- Determine production ratio
+    local production_ratio = 0
 
     local relevant_product_count = #relevant_products
     if relevant_product_count == 1 then
@@ -73,6 +76,11 @@ local function update_line(line_data, aggregate, looped_fuel)
             or math.min(production_ratio, capped_production_ratio)
     end
 
+    -- Determine machine count
+    local machine_count = production_ratio / crafts_per_second
+    -- Add the integer machine count to the aggregate so it can be displayed on the origin_line
+    aggregate.machine_count = aggregate.machine_count + math.ceil(machine_count - 1e-6)
+
 
     -- Determines the amount of the given item, considering productivity
     local function determine_amount_with_productivity(item)
@@ -81,10 +89,87 @@ local function update_line(line_data, aggregate, looped_fuel)
         return prodded_amount * production_ratio
     end
 
+    -- Determine energy consumption (including potential fuel needs) and emissions
+    local energy_consumption, emissions = solver_util.determine_energy_consumption_and_emissions(machine_proto,
+        recipe_proto, fuel_proto, machine_count, line_data.energy_usage, total_effects, line_data.pollutant_type)
+
+    local fuel_amount = nil
+    if machine_proto.energy_type == "burner" then
+        local fuel_name = line_data.fuel_name
+        fuel_amount = solver_util.determine_fuel_amount(energy_consumption,
+            machine_proto.burner, fuel_proto.fuel_value)
+
+        -- Handle recipes producing their own machine's fuel
+        if self_feeding and production_ratio > 0 then
+            if original_aggregate ~= nil then  -- means the fuel is a main product
+                local ingredient_class = original_aggregate.Ingredient[fuel_proto.type]
+                local initial_demand = ingredient_class[fuel_name]
+                local ratio = fuel_amount / initial_demand
+
+                if ratio + 1e-6 < 1 then  -- a ratio >= 1 means this can't outproduce itself
+                    -- Need a lot of precision here, hence the exponent of 20
+                    local bumped_demand = initial_demand * ((1 - ratio ^ 20) / (1 - ratio))
+                    ingredient_class[fuel_name] = bumped_demand
+
+                    -- Run line with fuel amount bumped to account for own consumption
+                    update_line(line_data, original_aggregate, bumped_demand - initial_demand)
+                    return
+                end
+            else  -- means the fuel is a byproduct only, which shouldn't affect production
+                local byproduct_amount = determine_amount_with_productivity(fuel_byproduct)
+                local used_amount = math.min(fuel_amount, byproduct_amount)
+
+                local fuel_item = {type=fuel_proto.type, name=fuel_name, amount=used_amount}
+                structures.class.subtract(aggregate.Byproduct, fuel_item)  -- subtract from floor
+                looped_fuel = used_amount
+            end
+        end
+
+        -- Removed looped fuel from main aggregate as its used right away
+        local corrected_amount = fuel_amount - (looped_fuel or 0)
+        local fuel_item = {type=fuel_proto.type, name=fuel_name, amount=corrected_amount}
+        structures.class.add(aggregate.Ingredient, fuel_item)  -- add to floor
+        -- Fuel itself is set via a special amount variable on the line itself
+
+        if fuel_proto.burnt_result then
+            local burnt_result = {type="item", name=fuel_proto.burnt_result, amount=fuel_amount, constant=true}
+            table.insert(byproducts, burnt_result)
+        end
+
+        energy_consumption = 0  -- set electrical consumption to 0 when fuel is used
+
+    elseif machine_proto.energy_type == "heat" then
+        local heat_item = {type="entity", name="custom-heat-power", amount=energy_consumption, constant=true}
+        table.insert(ingredients, heat_item)
+
+        energy_consumption = 0  -- set electrical consumption to 0 when heat is used
+
+    elseif machine_proto.energy_type == "void" then
+        energy_consumption = 0  -- set electrical consumption to 0 while still polluting
+    end
+
+    if emissions ~= 0 then  -- emissions are either produced or consumed
+        local emission_name = "custom-" .. line_data.pollutant_type
+        local emission_item = {type="entity", name=emission_name, amount=math.abs(emissions), constant=true}
+        if emissions > 0 then
+            local is_product = (aggregate.Ingredient["entity"][emission_name] ~= nil)
+            table.insert((is_product) and relevant_products or byproducts, emission_item)
+        elseif emissions < 0 then
+            table.insert(ingredients, emission_item)
+        end
+    end
+
+    -- Include beacon energy consumption
+    energy_consumption = energy_consumption + (line_data.beacon_consumption or 0)
+
+    aggregate.energy_consumption = aggregate.energy_consumption + energy_consumption
+
+
     -- Determine byproducts
     local Byproduct = structures.class.init()
     for _, byproduct in pairs(byproducts) do
-        local byproduct_amount = determine_amount_with_productivity(byproduct)
+        local byproduct_amount = (byproduct.constant) and byproduct.amount
+            or determine_amount_with_productivity(byproduct)
 
         structures.class.add(Byproduct, byproduct, byproduct_amount)
         structures.class.add(aggregate.Byproduct, byproduct, byproduct_amount)
@@ -93,7 +178,8 @@ local function update_line(line_data, aggregate, looped_fuel)
     -- Determine products
     local Product = structures.class.init()
     for _, product in ipairs(relevant_products) do
-        local product_amount = determine_amount_with_productivity(product)
+        local product_amount = (product.constant) and product.amount
+            or determine_amount_with_productivity(product)
         local product_demand = aggregate.Ingredient[product.type][product.name] or 0
 
         if product_amount > product_demand then
@@ -109,9 +195,10 @@ local function update_line(line_data, aggregate, looped_fuel)
 
     -- Determine ingredients
     local Ingredient = structures.class.init()
-    for _, ingredient in pairs(line_data.ingredients) do
-        local ingredient_amount = (ingredient.amount * production_ratio)
-        if ingredient.type ~= "fluid" then  -- only applies to mining fluids
+    for _, ingredient in pairs(ingredients) do
+        local ingredient_amount = (ingredient.constant) and ingredient.amount
+            or ingredient.amount * production_ratio
+        if ingredient.type ~= "fluid" then  -- doesn't apply to mining fluids
             ingredient_amount = ingredient_amount * line_data.resource_drain_rate
         end
 
@@ -127,79 +214,6 @@ local function update_line(line_data, aggregate, looped_fuel)
     structures.class.balance_items(Ingredient, aggregate.Byproduct, aggregate.Ingredient)
 
 
-    -- Determine machine count
-    local machine_count = production_ratio / crafts_per_second
-    -- Add the integer machine count to the aggregate so it can be displayed on the origin_line
-    aggregate.machine_count = aggregate.machine_count + math.ceil(machine_count - 1e-6)
-
-
-    -- Determine energy consumption (including potential fuel needs) and emissions
-    local energy_consumption, emissions = solver_util.determine_energy_consumption_and_emissions(machine_proto,
-        recipe_proto, fuel_proto, machine_count, line_data.energy_usage, total_effects, line_data.pollutant_type)
-
-    local fuel_amount = nil
-    if machine_proto.energy_type == "burner" then
-        fuel_amount = solver_util.determine_fuel_amount(energy_consumption,
-            machine_proto.burner, fuel_proto.fuel_value)
-        local fuel_item = line_data.fuel_item
-
-        -- Handle recipes producing their own machine's fuel
-        if self_feeding and production_ratio > 0 then
-            if original_aggregate ~= nil then  -- means the fuel is a main product
-                local ingredient_class = original_aggregate.Ingredient[fuel_item.type]
-                local initial_demand = ingredient_class[fuel_item.name]
-                local ratio = fuel_amount / initial_demand
-
-                if ratio + 1e-6 < 1 then  -- a ratio >= 1 means this can't outproduce itself
-                    -- Need a lot of precision here, hence the exponent of 20
-                    local bumped_demand = initial_demand * ((1 - ratio ^ 20) / (1 - ratio))
-                    ingredient_class[fuel_item.name] = bumped_demand
-
-                    -- Run line with fuel amount bumped to account for own consumption
-                    update_line(line_data, original_aggregate, bumped_demand - initial_demand)
-                    return
-                end
-            else  -- means the fuel is a byproduct only, which shouldn't affect production
-                local byproduct_amount = Byproduct[fuel_item.type][fuel_item.name]
-                local used_amount = math.min(fuel_amount, byproduct_amount)
-
-                structures.class.subtract(aggregate.Byproduct, fuel_item, used_amount)
-                looped_fuel = used_amount
-            end
-        end
-
-        -- Removed looped fuel from main aggregate as its used right away
-        local corrected_amount = fuel_amount - (looped_fuel or 0)
-        local fuel_item = {type=fuel_item.type, name=fuel_item.name, amount=corrected_amount}
-        structures.class.add(aggregate.Ingredient, fuel_item)  -- add to floor
-        -- Fuel itself is set via a special amount variable on the line itself
-
-        if fuel_proto.burnt_result then
-            local burnt_result = {type="item", name=fuel_proto.burnt_result, amount=fuel_amount}
-            structures.class.add(Byproduct, burnt_result)  -- add to line
-            structures.class.add(aggregate.Byproduct, burnt_result)  -- add to floor
-        end
-
-        energy_consumption = 0  -- set electrical consumption to 0 when fuel is used
-
-    elseif machine_proto.energy_type == "heat" then
-        local heat_item = {type="entity", name="custom-heat-power", amount=energy_consumption}
-        structures.class.add(Ingredient, heat_item)  -- add to line
-        structures.class.add(aggregate.Ingredient, heat_item)  -- add to floor
-
-        energy_consumption = 0  -- set electrical consumption to 0 when heat is used
-
-    elseif machine_proto.energy_type == "void" then
-        energy_consumption = 0  -- set electrical consumption to 0 while still polluting
-    end
-
-    -- Include beacon energy consumption
-    energy_consumption = energy_consumption + (line_data.beacon_consumption or 0)
-
-    aggregate.energy_consumption = aggregate.energy_consumption + energy_consumption
-    aggregate.emissions = aggregate.emissions + emissions
-
-
     -- Update the actual line with the calculated results
     solver.set_line_result {
         player_index = aggregate.player_index,
@@ -207,7 +221,6 @@ local function update_line(line_data, aggregate, looped_fuel)
         line_id = line_data.id,
         machine_count = machine_count,
         energy_consumption = energy_consumption,
-        emissions = emissions,
         production_ratio = production_ratio,
         Product = Product,
         Byproduct = Byproduct,
@@ -248,8 +261,6 @@ local function update_floor(floor_data, aggregate)
             -- Update the main aggregate with the results
             aggregate.machine_count = aggregate.machine_count + subfloor_aggregate.machine_count
             aggregate.energy_consumption = aggregate.energy_consumption + subfloor_aggregate.energy_consumption
-            aggregate.emissions = aggregate.emissions + subfloor_aggregate.emissions
-
 
             -- Update the parent line of the subfloor with the results from the subfloor aggregate
             solver.set_line_result {
@@ -258,7 +269,6 @@ local function update_floor(floor_data, aggregate)
                 line_id = line_data.id,
                 machine_count = subfloor_aggregate.machine_count,
                 energy_consumption = subfloor_aggregate.energy_consumption,
-                emissions = subfloor_aggregate.emissions,
                 production_ratio = nil,
                 Product = subfloor_aggregate.Product,
                 Byproduct = subfloor_aggregate.Byproduct,
@@ -301,7 +311,6 @@ function sequential_engine.update_factory(factory_data)
         player_index = factory_data.player_index,
         factory_id = factory_data.factory_id,
         energy_consumption = aggregate.energy_consumption,
-        emissions = aggregate.emissions,
         Product = aggregate.Product,
         Byproduct = aggregate.Byproduct,
         Ingredient = aggregate.Ingredient

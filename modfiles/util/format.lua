@@ -60,6 +60,18 @@ function _format.SI_value(value, unit, precision)
 end
 
 
+---@param name string
+---@param amount number
+---@return LocalisedString tooltip_line
+function _format.special_tooltip(name, amount)
+    if name == "custom-heat-power" then
+        return util.format.SI_value(amount, "W", 3)
+    else  -- any of the emission types
+        return util.format.SI_value(amount, "E/m", 3)
+    end
+end
+
+
 ---@param count number
 ---@param round_number boolean
 ---@return string? formatted_count

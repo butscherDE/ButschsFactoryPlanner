@@ -13,7 +13,6 @@ local function set_blank_line(player, floor, line)
         line_id = line.id,
         machine_count = 0,
         energy_consumption = 0,
-        emissions = 0,
         production_ratio = (line.class == "Line") and 0 or nil,
         Product = blank_class,
         Byproduct = blank_class,
@@ -40,7 +39,6 @@ local function set_blank_factory(player, factory)
         player_index = player.index,
         factory_id = factory.id,
         energy_consumption = 0,
-        emissions = 0,
         Product = blank_class,
         Byproduct = blank_class,
         Ingredient = blank_class,
@@ -93,7 +91,7 @@ end
 
 
 -- Generates structured data of the given floor for calculation
-local function generate_floor_data(player, factory, floor)
+local function generate_floor_data(player, factory, floor, calculate_emissions)
     local floor_data = {
         id = floor.id,
         products = (floor.level == 1) and factory_products(factory)
@@ -106,7 +104,7 @@ local function generate_floor_data(player, factory, floor)
 
         if line.class == "Floor" then
             line_data.recipe_proto = line.first.recipe.proto
-            line_data.subfloor = generate_floor_data(player, factory, line)
+            line_data.subfloor = generate_floor_data(player, factory, line, calculate_emissions)
             table.insert(floor_data.lines, line_data)
         else
             local relevant_line = (line.parent.level > 1) and line.parent.first or nil  --[[@as Line]]
@@ -135,8 +133,7 @@ local function generate_floor_data(player, factory, floor)
                 line_data.machine_speed = machine:get_speed()
                 line_data.energy_usage = machine:get_energy_usage()
                 line_data.resource_drain_rate = machine:get_resource_drain_rate()
-                line_data.fuel_proto = machine.fuel and machine.fuel.proto or nil
-                line_data.pollutant_type = factory.parent.location_proto.pollutant_type
+                line_data.pollutant_type = (calculate_emissions) and factory.parent.location_proto.pollutant_type or nil
 
                 -- Boiler recipe energy
                 if machine.proto.prototype_category == "boiler" then
@@ -156,13 +153,10 @@ local function generate_floor_data(player, factory, floor)
                     line_data.beacon_consumption = line.beacon:get_total_consumption()
                 end
 
-                local fuel = machine.fuel
-                if fuel then  -- will have a temperature configured if applicable
-                    if fuel.proto.type == "fluid" then
-                        line_data.fuel_item = {name=fuel.proto.name .. "-" .. fuel.temperature, type="fluid"}
-                    else
-                        line_data.fuel_item = {name=fuel.proto.name, type=fuel.proto.type}
-                    end
+                if machine.fuel then
+                    line_data.fuel_proto = machine.fuel.proto
+                    line_data.fuel_name = (fuel.proto.type ~= "fluid") and fuel.proto.name
+                        or (fuel.proto.name .. "-" .. fuel.temperature)
                 end
 
                 table.insert(floor_data.lines, line_data)
@@ -199,7 +193,7 @@ local function update_object_items(object, item_category, item_results)
             item_proto = prototyper.util.find("items", item_proto.base_name, "fluid")
         end
 
-        if object.class ~= "Floor" or item_proto.type ~= "entity" or SPECIAL_ITEMS[item_proto.name] then
+        if object.class ~= "Floor" or item_proto.type ~= "entity" or item_proto.special then
             table.insert(item_list, {proto=item_proto, amount=item_result.amount})
         end
     end
@@ -316,10 +310,11 @@ end
 -- ** INTERFACE **
 -- Returns a table containing all the data needed to run the calculations for the given factory
 function solver.generate_factory_data(player, factory)
+    local calculate_emissions = util.globals.preferences(player).calculate_emissions
     local factory_data = {
         player_index = player.index,
         factory_id = factory.id,
-        top_floor = generate_floor_data(player, factory, factory.top_floor),
+        top_floor = generate_floor_data(player, factory, factory.top_floor, calculate_emissions),
         matrix_free_items = factory.matrix_free_items
     }
 
@@ -333,7 +328,6 @@ function solver.set_factory_result(result)
     if factory.parent then factory.parent.needs_refresh = true end
 
     factory.top_floor.power = result.energy_consumption
-    factory.top_floor.emissions = result.emissions
     factory.matrix_free_items = result.matrix_free_items or {}
 
     for product in factory:iterator() do
@@ -365,7 +359,6 @@ function solver.set_line_result(result)
     end
 
     line.power = result.energy_consumption
-    line.emissions = result.emissions
 
     if line.production_ratio == 0 then
         local recipe_proto = line.recipe.proto

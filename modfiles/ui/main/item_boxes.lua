@@ -55,13 +55,11 @@ local function refresh_item_box(player, factory, show_floor_items, item_category
     local function build_item(item, index)
         local amount, number_tooltip = nil, nil
         local satisfaction_line = ""  ---@type LocalisedString
-        local style = default_style
-        local action = default_action
+        local action, style = default_action, default_style
 
-        if item.proto.type == "entity" and item.proto.name == "custom-heat-power" then
-            number_tooltip = {"fp.heat_unit", util.format.SI_value(item.amount, "W", 3)}
+        if item.proto.type == "entity" and item.proto.special then
+            number_tooltip = util.format.special_tooltip(item.proto.name, item.amount)
 
-            style = "flib_slot_button_cyan"
             action = "act_on_top_level_special"
         else
             local required_amount = (item.class == "Product") and item:get_required_amount() or nil

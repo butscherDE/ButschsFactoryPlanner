@@ -186,6 +186,15 @@ local function handle_checkbox_preference_change(player, tags, event)
         end
         util.gui.run_refresh(player, "production")
 
+    elseif preference_name == "calculate_emissions" then
+        local realm = util.globals.player_table(player).realm
+        for district in realm:iterator() do
+            for factory in district:iterator() do
+                solver.update(player, factory)
+            end
+        end
+        util.gui.run_refresh(player, "production")
+
     elseif preference_name == "attach_factory_products" or preference_name == "skip_factory_naming" then
         util.gui.run_refresh(player, "factory_list")
 
@@ -300,8 +309,8 @@ local function open_preferences_dialog(player, modal_data)
     local left_content_frame = modal_elements.content_frame
 
     local general_preference_names = {"show_gui_button", "skip_factory_naming", "attach_factory_products",
-        "prefer_matrix_solver", "show_floor_items", "ingredient_satisfaction", "ignore_barreling_recipes",
-        "ignore_recycling_recipes"}
+        "prefer_matrix_solver", "show_floor_items", "ingredient_satisfaction", "calculate_emissions",
+        "ignore_barreling_recipes", "ignore_recycling_recipes"}
     local general_box = add_checkboxes_box(preferences, left_content_frame, "general", general_preference_names)
 
     general_box.add{type="line", direction="horizontal"}.style.margin = {4, 0, 2, 0}

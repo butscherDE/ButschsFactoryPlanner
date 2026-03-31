@@ -25,6 +25,7 @@ require("backend.calculation.solver")
 ---@field prefer_matrix_solver boolean
 ---@field show_floor_items boolean
 ---@field ingredient_satisfaction boolean
+---@field calculate_emissions boolean
 ---@field ignore_barreling_recipes boolean
 ---@field ignore_recycling_recipes boolean
 ---@field done_column boolean
@@ -74,6 +75,7 @@ function reload_preferences(player_table)
     reload("prefer_matrix_solver", false)
     reload("show_floor_items", true)
     reload("ingredient_satisfaction", false)
+    reload("calculate_emissions", false)
     reload("ignore_barreling_recipes", false)
     reload("ignore_recycling_recipes", false)
 

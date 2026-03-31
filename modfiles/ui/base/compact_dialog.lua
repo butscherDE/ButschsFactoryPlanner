@@ -176,6 +176,7 @@ local function add_item_flow(line, relevant_line, item_category, button_color, m
     if column_count == 0 then metadata.parent.add{type="empty-widget"}; return end
     local item_table = metadata.parent.add{type="table", column_count=column_count}
 
+    local first_special_index = nil  -- place for fuel to slot in
     for index, item in pairs(line[item_category .. "s"]) do
         local proto, type = item.proto, item.proto.type
 
@@ -186,10 +187,10 @@ local function add_item_flow(line, relevant_line, item_category, button_color, m
         local tags = {mod="fp", line_id=line.id, item_category=item_category .. "s", item_index=index,
             on_gui_hover="hover_compact_item", on_gui_leave="leave_compact_item", context="compact_dialog"}
 
-        if type == "entity" and item.proto.name == "custom-heat-power" then
-            number_tooltip = {"fp.heat_unit", util.format.SI_value(item.amount, "W", 3)}
-
-            button_color = "cyan"
+        if type == "entity" and item.proto.special then
+            number_tooltip = util.format.special_tooltip(proto.name, item.amount)
+            if not relevant_line.done and item_category == "ingredient" then button_color = "cyan" end
+            first_special_index = index
         else
             -- items/s/machine does not make sense for lines with subfloors, show items/s instead
             local machine_count = (line.class == "Line") and line.machine.amount or nil
@@ -276,7 +277,7 @@ local function add_item_flow(line, relevant_line, item_category, button_color, m
         local button = item_table.add{type="sprite-button", sprite=fuel.proto.sprite, style=style, number=amount,
             tags={mod="fp", on_gui_click="act_on_compact_item", fuel_id=fuel.id, on_gui_hover="hover_compact_item",
             on_gui_leave="leave_compact_item", context="compact_dialog"}, mouse_button_filter={"left-and-right"},
-            raise_hover_events=true}
+            raise_hover_events=true, index=first_special_index}
         metadata.tooltips[button.index] = tooltip
 
         local type, name = fuel.proto.type, fuel.proto.name
@@ -320,28 +321,26 @@ local function refresh_compact_header(player, factory)
     local table_items = item_frame.add{type="table", column_count=column_count, style="filter_slot_table"}
 
     local item_buttons = compact_elements.item_buttons
-
     local show_floor_items = player_table.preferences.show_floor_items
     local relevant_floor = (show_floor_items) and current_floor or factory.top_floor
+
     for index, ingredient in pairs(relevant_floor.ingredients) do
         local amount, number_tooltip = nil, nil
-        local style, action_line = nil, ""
+        local action_line = ""
         local tags = {mod="fp", floor_id=relevant_floor.id, item_index=index, on_gui_hover="hover_compact_item",
             on_gui_leave="leave_compact_item", context="compact_dialog"}
 
-        if ingredient.proto.type == "entity" and ingredient.proto.name == "custom-heat-power" then
-            number_tooltip = {"fp.heat_unit", util.format.SI_value(ingredient.amount, "W", 3)}
-
-            style = "flib_slot_button_cyan"
+        if ingredient.proto.type == "entity" and ingredient.proto.special then
+            number_tooltip = util.format.special_tooltip(ingredient.proto.name, ingredient.amount)
         else
             amount, number_tooltip = item_views.process_item(player, ingredient, nil, nil)
             if amount == -1 then goto skip_ingredient end  -- an amount of -1 means it was below the margin of error
 
             tags.on_gui_click = "act_on_compact_ingredient"
             action_line = {"", "\n", MODIFIER_ACTIONS["act_on_compact_item"].tooltip}
-            style = "flib_slot_button_default"
         end
 
+        local style = "flib_slot_button_default"
         local number_line = (number_tooltip) and {"", "\n", number_tooltip} or ""
         local tooltip = {"", {"fp.tt_title", ingredient.proto.localised_name}, number_line, action_line}
 

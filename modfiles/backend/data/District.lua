@@ -11,7 +11,6 @@ local DistrictItemSet = require("backend.data.DistrictItemSet")
 ---@field item_set DistrictItemSet
 ---@field first Factory?
 ---@field power number
----@field emissions number
 ---@field needs_refresh boolean
 ---@field collapsed boolean
 local District = Object.methods()
@@ -28,7 +27,6 @@ local function init(name)
         first = nil,
 
         power = 0,
-        emissions = 0,
 
         needs_refresh = false,
         collapsed = false
@@ -108,12 +106,10 @@ function District:refresh()
     self.needs_refresh = false
 
     self.power = 0
-    self.emissions = 0
     self.item_set:clear()
 
     for factory in self:iterator({archived=false, valid=true}) do
         self.power = self.power + factory.top_floor.power
-        self.emissions = self.emissions + factory.top_floor.emissions
 
         self.item_set:add_items(factory:as_list(), "production")
         self.item_set:add_items(factory.top_floor.byproducts, "production")

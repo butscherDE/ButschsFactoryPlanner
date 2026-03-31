@@ -5,10 +5,11 @@ Date: 00. 00. 0000
     - Implemented support for using a cursor item to configure the picker dialog (#667)
     - Implemented support for heat as an energy source for machines (#639)
   Changes:
-    - Changed the utility dialog item combinator to offer both total and missing item options (#677)
     - Added support for mods defining their own quality percentage steps (#720)
     - Added support for mods increasing module count with quality (#678)
     - Added support for mods increasing machine speed with quality
+    - Changed the utility dialog item combinator to offer both total and missing item options (#677)
+    - Changed emissions to be displayed as products and ingredients instead of a separate datum
   Bugfixes:
     - Fixed that machines with fixed recipes weren't restricted to only that recipe (#704)
     - Fixed that higher quality boilers didn't adjust fuel consumption correctly (#647)

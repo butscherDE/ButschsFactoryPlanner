@@ -475,6 +475,17 @@ listeners.gui = {
             end)
         },
         {
+            name = "act_on_line_special_byproduct",
+            actions_table = {
+                add_recipe_to_end = {shortcut="left", limitations={archive_open=false, matrix_active=true}, show=true},
+                add_recipe_below = {limitations={archive_open=false, matrix_active=true}}
+            },
+            handler = (function(player, tags, action)
+                tags.item_category = "byproduct"
+                handle_item_click(player, tags, action)
+            end)
+        },
+        {
             name = "act_on_line_ingredient",
             actions_table = {
                 add_recipe_to_end = {shortcut="left", limitations={archive_open=false}, show=true},
@@ -505,13 +516,13 @@ listeners.gui = {
             handler = handle_fuel_click
         },
         {
-            name = "act_on_line_special",
+            name = "act_on_line_special_ingredient",
             actions_table = {
                 add_recipe_to_end = {shortcut="left", limitations={archive_open=false}, show=true},
                 add_recipe_below = {limitations={archive_open=false}}
             },
             handler = (function(player, tags, action)
-                tags.item_category = "ingredient"  -- TODO
+                tags.item_category = "ingredient"
                 handle_item_click(player, tags, action)
             end)
         }

@@ -96,7 +96,7 @@ local function refresh_fuel_frame(player)
     local modal_elements = modal_data.modal_elements
     local machine = modal_data.object
 
-    local burns_fuel = machine.proto.enery_type == "burner"
+    local burns_fuel = (machine.proto.energy_type == "burner")
     modal_elements.fuel_label.visible = (not burns_fuel)
     modal_elements.fuel_button_flow.clear()
 

@@ -382,7 +382,6 @@ function matrix_engine.run_matrix_solver(factory_data, check_linear_dependence)
 
             -- add line_aggregate to floor_aggregate first to track fuel as ingredient higher up
             floor_aggregate.energy_consumption = floor_aggregate.energy_consumption + line_aggregate.energy_consumption
-            floor_aggregate.emissions = floor_aggregate.emissions + line_aggregate.emissions
 
             for _, class in pairs{"Product", "Byproduct", "Ingredient"} do
                 for _, item in pairs(structures.class.list(line_aggregate[class])) do
@@ -408,7 +407,6 @@ function matrix_engine.run_matrix_solver(factory_data, check_linear_dependence)
                 line_id = line.id,
                 machine_count = machine_count,
                 energy_consumption = line_aggregate.energy_consumption,
-                emissions = line_aggregate.emissions,
                 production_ratio = line_aggregate.production_ratio,
                 Product = line_aggregate.Product,
                 Byproduct = line_aggregate.Byproduct,
@@ -463,7 +461,6 @@ function matrix_engine.run_matrix_solver(factory_data, check_linear_dependence)
         player_index = factory_data.player_index,
         factory_id = factory_data.factory_id,
         energy_consumption = top_floor_aggregate.energy_consumption,
-        emissions = top_floor_aggregate.emissions,
         Product = main_aggregate.Product,
         Byproduct = main_aggregate.Byproduct,
         Ingredient = main_aggregate.Ingredient,
@@ -643,20 +640,24 @@ function matrix_engine.get_line_aggregate(line_data, player_index, floor_id, mac
     local total_crafts = machine_count * (1 / time_per_craft)
     line_aggregate.production_ratio = total_crafts
 
+    local function add_product(product, amount)
+        local item_key = matrix_engine.get_item_key(product.type, product.name)
+        if factory_metadata ~= nil and (factory_metadata.byproducts[item_key] or free_variables["item_"..item_key]) then
+           structures.class.add(line_aggregate.Byproduct, product, amount)
+        else
+            structures.class.add(line_aggregate.Product, product, amount)
+        end
+    end
+
     for _, product in pairs(recipe_proto.products) do
         local prodded_amount = solver_util.determine_prodded_amount(product, total_effects,
             recipe_proto.maximum_productivity)
-        local item_key = matrix_engine.get_item_key(product.type, product.name)
-        if factory_metadata ~= nil and (factory_metadata.byproducts[item_key] or free_variables["item_"..item_key]) then
-           structures.class.add(line_aggregate.Byproduct, product, prodded_amount * total_crafts)
-        else
-            structures.class.add(line_aggregate.Product, product, prodded_amount * total_crafts)
-        end
+        add_product(product, prodded_amount * total_crafts)
     end
 
     for _, ingredient in pairs(line_data.ingredients) do
         local ingredient_amount = (ingredient.amount * total_crafts)
-        if ingredient.type ~= "fluid" then  -- only applies to mining fluids
+        if ingredient.type ~= "fluid" then  -- doesn't apply to mining fluids
             ingredient_amount = ingredient_amount * line_data.resource_drain_rate
         end
         structures.class.add(line_aggregate.Ingredient, ingredient, ingredient_amount)
@@ -673,17 +674,12 @@ function matrix_engine.get_line_aggregate(line_data, player_index, floor_id, mac
         fuel_amount = solver_util.determine_fuel_amount(energy_consumption, line_data.machine_proto.burner,
             fuel_proto.fuel_value)
 
-        fuel = {type=line_data.fuel_item.type, name=line_data.fuel_item.name, amount=fuel_amount}
-        structures.class.add(line_aggregate.Ingredient, fuel, fuel_amount)
+        fuel = {type=fuel_proto.type, name=line_data.fuel_name, amount=fuel_amount}
+        structures.class.add(line_aggregate.Ingredient, fuel)
 
         if fuel_proto.burnt_result then
             local burnt_result = {type="item", name=fuel_proto.burnt_result, amount=fuel_amount}
-            local burnt_key = matrix_engine.get_item_key(burnt_result.type, burnt_result.name)
-            if factory_metadata ~= nil and (factory_metadata.byproducts[burnt_key] or free_variables["item_"..burnt_key]) then
-            structures.class.add(line_aggregate.Byproduct, burnt_result, fuel_amount)
-            else
-                structures.class.add(line_aggregate.Product, burnt_result, fuel_amount)
-            end
+            add_product(burnt_result)
         end
 
         energy_consumption = 0  -- set electrical consumption to 0 when fuel is used
@@ -698,11 +694,21 @@ function matrix_engine.get_line_aggregate(line_data, player_index, floor_id, mac
         energy_consumption = 0  -- set electrical consumption to 0 while still polluting
     end
 
+    if emissions ~= 0 then  -- emissions are either produced or consumed
+        local emission_name = "custom-" .. line_data.pollutant_type
+        local emission_item = {type="entity", name=emission_name, amount=math.abs(emissions)}
+
+        if emissions > 0 then
+            add_product(emission_item)
+        elseif emissions < 0 then
+            structures.class.add(line_aggregate.Ingredient, emission_item)
+        end
+    end
+
     -- Include beacon energy consumption
     energy_consumption = energy_consumption + (line_data.beacon_consumption or 0)
 
     line_aggregate.energy_consumption = energy_consumption
-    line_aggregate.emissions = emissions
 
     -- needed for interface.set_line_result
     line_aggregate.fuel = fuel

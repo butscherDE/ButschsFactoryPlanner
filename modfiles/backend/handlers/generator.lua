@@ -424,16 +424,13 @@ end
 ---@field subgroup ItemGroup
 ---@field tooltip LocalisedString?
 ---@field fixed_unit LocalisedString?
+---@field special boolean
 
 ---@alias RelevantItems { [ItemType]: { [ItemName]: ItemDetails } }
 
 ---@class ItemDetails
 ---@field ingredient_only boolean
 ---@field temperature float?
-
-SPECIAL_ITEMS = {
-    ["custom-heat-power"] = true
-}
 
 ---@return NamedPrototypesWithCategory<FPItemPrototype>
 function generator.items.generate()
@@ -521,10 +518,10 @@ function generator.items.generate()
         localised_name = {"fp.heat_power"},
         sprite = "fp_heat_power",
         hidden = true,
-        order = "z-c2"
+        order = "z-c2",
+        special = true
     }
     generator_util.add_default_groups(custom_items["custom-heat-power"])
-
 
     local relevant_items = {item={}, fluid={}, entity={}}
     local fluid_has_temperature = {}
@@ -569,7 +566,22 @@ function generator.items.generate()
         end
     end
 
-    -- No recipes use these so they need to be added manually
+    -- Add a custom item for each kind of pollution
+    for _, pollutant in pairs(prototypes.airborne_pollutant) do
+        local item_name = "custom-" .. pollutant.name
+        custom_items[item_name] = {
+            name = item_name,
+            localised_name = {"", pollutant.localised_name},
+            sprite = "fp_emissions",
+            hidden = true,
+            order = "z-c3-" .. pollutant.order,
+            special = true
+        }
+        generator_util.add_default_groups(custom_items[item_name])
+        relevant_items["entity"][item_name] = {ingredient_only=true}
+    end
+
+    -- No recipes use these (yet) so they need to be added manually
     relevant_items["entity"]["custom-heat-power"] = {ingredient_only=true}
 
     for type, item_table in pairs(relevant_items) do
@@ -600,6 +612,7 @@ function generator.items.generate()
                 item.subgroup = proto.subgroup
                 item.tooltip = proto.localised_name
                 item.fixed_unit = proto.fixed_unit -- can be nil
+                item.special = proto.special or false
             elseif type == "fluid" and item.temperature then
                 item.localised_name = {"fp.fluid_with_temperature", proto.localised_name, item.temperature}
                 item.tooltip = item.localised_name

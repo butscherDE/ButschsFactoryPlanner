@@ -167,19 +167,6 @@ function _gui.reset_player(player)
 end
 
 
----@param emissions number
----@param district District
----@return LocalisedString tooltip
-function _gui.format_emissions(emissions, district)
-    if emissions == 0 then
-        return {"fp.emissions_none"}
-    else
-        local pollutant = {"airborne-pollutant-name." .. district.location_proto.pollutant_type}
-        local emission = util.format.SI_value(emissions, "E/m", 3)
-        return {"fp.emissions_line", pollutant, emission}
-    end
-end
-
 function _gui.calculate_satisfaction(satisfied_amount, actual_amount)
     local satisfied_percentage = (satisfied_amount / actual_amount) * 100
     local percentage_string = util.format.number(satisfied_percentage, 3)

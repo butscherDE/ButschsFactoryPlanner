@@ -40,10 +40,6 @@ local function refresh_production_bar(player)
             local label_power = production_bar_elements.power_label
             label_power.caption = {"fp.bold_label", util.format.SI_value(top_floor.power, "W", 3)}
             label_power.tooltip = {"", {"fp.u_power"}, ": ", util.format.SI_value(top_floor.power, "W", 5)}
-
-            local label_emissions = production_bar_elements.emissions_label
-            label_emissions.caption = {"fp.bold_label", util.format.SI_value(top_floor.emissions, "E/m", 3)}
-            label_emissions.tooltip = util.gui.format_emissions(top_floor.emissions, factory.parent)
         end
 
         -- Validity label
@@ -85,9 +81,6 @@ local function build_production_bar(player)
     main_elements.production_bar["power_emissions_flow"] = flow_power_emissions
     local label_power_value = flow_power_emissions.add{type="label"}
     main_elements.production_bar["power_label"] = label_power_value
-    flow_power_emissions.add{type="label", caption="|"}
-    local label_emissions_value = flow_power_emissions.add{type="label"}
-    main_elements.production_bar["emissions_label"] = label_emissions_value
 
     local label_invalid = flow_factory.add{type="label", caption={"fp.invalid"}, style="bold_red_label"}
     label_invalid.style.top_margin = 4

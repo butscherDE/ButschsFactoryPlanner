@@ -90,36 +90,40 @@ local function build_items_flow(player, parent, district)
 
     for item in district.item_set:iterator() do
         local relevant_table = (item.overall == "production") and prod_table or ingr_table
-        local action, style = nil, nil
-
         local total_amount = item[item.overall].amount
+
+        local action_line = nil
+        local tags = {mod="fp", item_id=item.id, on_gui_hover="set_tooltip", context="districts_box"}
         local diff_string, amount_tooltip = nil, nil
         local total_tooltip = nil
 
-        if item.proto.type == "entity" and item.proto.name == "custom-heat-power" then
-            action = "act_on_district_special"
-            style = "flib_slot_button_cyan"
+        if item.proto.type == "entity" and item.proto.special then
+            if item.overall == "consumption" then
+                tags.on_gui_click = "act_on_district_special_ingredient"
+                action_line = {"", "\n", MODIFIER_ACTIONS["act_on_district_special_ingredient"].tooltip}
+            end
 
-            amount_tooltip = {"fp.heat_unit", util.format.SI_value(item.abs_diff, "W", 3)}
-            total_tooltip = {"fp.heat_unit", util.format.SI_value(total_amount, "W", 3)}
+            amount_tooltip = util.format.special_tooltip(item.proto.name, item.abs_diff)
+            total_tooltip = util.format.special_tooltip(item.proto.name, total_amount)
         else
-            action = (item.overall == "production") and "act_on_district_product" or "act_on_district_ingredient"
-            local colors = color_map[item.overall]
-            local style = (item.abs_diff ~= total_amount) and colors.half or colors.full
+            local action = (item.overall == "production") and "act_on_district_product" or "act_on_district_ingredient"
+            tags.on_gui_click = action
+            action_line = {"", "\n", MODIFIER_ACTIONS[action].tooltip}
 
             diff_string, amount_tooltip = item_views.process_item(player, item, item.abs_diff, nil)
             _, total_tooltip = item_views.process_item(player, item, total_amount, nil)
         end
 
+        local colors = color_map[item.overall]
+        local style = (item.abs_diff ~= total_amount) and colors.half or colors.full
+
         local title_line = {"fp.tt_title", item.proto.localised_name}
         local diff_line = {"fp.item_amount_" .. item.overall, amount_tooltip}
         local total_line = {"fp.item_amount_total", total_tooltip}
-        local tooltip = {"", title_line, diff_line, total_line, "\n", MODIFIER_ACTIONS[action].tooltip}
+        local tooltip = {"", title_line, diff_line, total_line, action_line}
 
         local button = relevant_table.add{type="sprite-button", number=diff_string, style=style,
-            sprite=item.proto.sprite, tags={mod="fp", on_gui_click=action,
-            item_id=item.id, on_gui_hover="set_tooltip", context="districts_box"},
-            raise_hover_events=true, mouse_button_filter={"left-and-right"}}
+            sprite=item.proto.sprite, tags=tags, raise_hover_events=true, mouse_button_filter={"left-and-right"}}
         tooltips.districts_box[button.index] = tooltip
     end
 
@@ -200,13 +204,10 @@ local function build_district_frame(player, district, location_items)
             tags={mod="fp", on_gui_selection_state_changed="change_district_location", district_id=district.id}}
     end
 
-    -- Power & Pollution
+    -- Power
     local label_power = subheader.add{type="label", caption=util.format.SI_value(district.power, "W", 3),
         style="bold_label", tooltip={"", {"fp.u_power"}, ": ", util.format.SI_value(district.power, "W", 5)}}
     label_power.style.left_margin = 24
-    subheader.add{type="label", caption="|"}
-    subheader.add{type="label", caption=util.format.SI_value(district.emissions, "E/m", 3), style="bold_label",
-        tooltip=util.gui.format_emissions(district.emissions, district)}
 
     -- Item toggle
     subheader.add{type="empty-widget", style="flib_horizontal_pusher"}
@@ -365,7 +366,7 @@ listeners.gui = {
             handler = handle_item_button_click
         },
         {
-            name = "act_on_district_special",
+            name = "act_on_district_special_ingredient",
             actions_table = {
                 create_factory = {shortcut="left", show=true}
             },
