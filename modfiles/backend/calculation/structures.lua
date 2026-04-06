@@ -7,7 +7,6 @@ local structures = {
 ---@field player_index integer
 ---@field floor_id integer
 ---@field machine_count number
----@field energy_consumption number
 ---@field production_ratio number?
 ---@field Product SolverClass
 ---@field Byproduct SolverClass
@@ -21,7 +20,6 @@ function structures.aggregate.init(player_index, floor_id)
         player_index = player_index,
         floor_id = floor_id,
         machine_count = 0,
-        energy_consumption = 0,
         production_ratio = nil,
         Product = structures.class.init(),
         Byproduct = structures.class.init(),

@@ -380,9 +380,6 @@ function matrix_engine.run_matrix_solver(factory_data, check_linear_dependence)
             floor_aggregate.machine_count = floor_aggregate.machine_count +
                 math.ceil(line_aggregate.machine_count - 1e-6)
 
-            -- add line_aggregate to floor_aggregate first to track fuel as ingredient higher up
-            floor_aggregate.energy_consumption = floor_aggregate.energy_consumption + line_aggregate.energy_consumption
-
             for _, class in pairs{"Product", "Byproduct", "Ingredient"} do
                 for _, item in pairs(structures.class.list(line_aggregate[class])) do
                     structures.class.add(floor_aggregate[class], item)
@@ -406,7 +403,6 @@ function matrix_engine.run_matrix_solver(factory_data, check_linear_dependence)
                 floor_id = floor.id,
                 line_id = line.id,
                 machine_count = machine_count,
-                energy_consumption = line_aggregate.energy_consumption,
                 production_ratio = line_aggregate.production_ratio,
                 Product = line_aggregate.Product,
                 Byproduct = line_aggregate.Byproduct,
@@ -460,7 +456,6 @@ function matrix_engine.run_matrix_solver(factory_data, check_linear_dependence)
     solver.set_factory_result {
         player_index = factory_data.player_index,
         factory_id = factory_data.factory_id,
-        energy_consumption = top_floor_aggregate.energy_consumption,
         Product = main_aggregate.Product,
         Byproduct = main_aggregate.Byproduct,
         Ingredient = main_aggregate.Ingredient,
@@ -694,6 +689,13 @@ function matrix_engine.get_line_aggregate(line_data, player_index, floor_id, mac
         energy_consumption = 0  -- set electrical consumption to 0 while still polluting
     end
 
+    energy_consumption = energy_consumption + (line_data.beacon_consumption or 0)
+
+    if energy_consumption > 0 then
+        local electric_item = {type="entity", name="custom-electric-power", amount=energy_consumption, constant=true}
+        structures.class.add(line_aggregate.Ingredient, electric_item)
+    end
+
     if emissions ~= 0 then  -- emissions are either produced or consumed
         local emission_name = "custom-" .. line_data.pollutant_type
         local emission_item = {type="entity", name=emission_name, amount=math.abs(emissions)}
@@ -704,11 +706,6 @@ function matrix_engine.get_line_aggregate(line_data, player_index, floor_id, mac
             structures.class.add(line_aggregate.Ingredient, emission_item)
         end
     end
-
-    -- Include beacon energy consumption
-    energy_consumption = energy_consumption + (line_data.beacon_consumption or 0)
-
-    line_aggregate.energy_consumption = energy_consumption
 
     -- needed for interface.set_line_result
     line_aggregate.fuel = fuel

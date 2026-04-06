@@ -21,7 +21,6 @@ local Beacon = require("backend.data.Beacon")
 ---@field products SimpleItem[]
 ---@field byproducts SimpleItem[]
 ---@field ingredients SimpleItem[]
----@field power number
 ---@field production_ratio number?
 local Line = Object.methods()
 Line.__index = Line
@@ -47,7 +46,6 @@ local function init(recipe_proto, production_type)
         products = {},
         byproducts = {},
         ingredients = {},
-        power = 0,
         production_ratio = 0
     }, "Line", Line)  --[[@as Line]]
 

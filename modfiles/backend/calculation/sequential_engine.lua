@@ -148,6 +148,13 @@ local function update_line(line_data, aggregate, looped_fuel)
         energy_consumption = 0  -- set electrical consumption to 0 while still polluting
     end
 
+    energy_consumption = energy_consumption + (line_data.beacon_consumption or 0)
+
+    if energy_consumption > 0 then
+        local electric_item = {type="entity", name="custom-electric-power", amount=energy_consumption, constant=true}
+        table.insert(ingredients, electric_item)
+    end
+
     if emissions ~= 0 then  -- emissions are either produced or consumed
         local emission_name = "custom-" .. line_data.pollutant_type
         local emission_item = {type="entity", name=emission_name, amount=math.abs(emissions), constant=true}
@@ -158,12 +165,6 @@ local function update_line(line_data, aggregate, looped_fuel)
             table.insert(ingredients, emission_item)
         end
     end
-
-    -- Include beacon energy consumption
-    energy_consumption = energy_consumption + (line_data.beacon_consumption or 0)
-
-    aggregate.energy_consumption = aggregate.energy_consumption + energy_consumption
-
 
     -- Determine byproducts
     local Byproduct = structures.class.init()
@@ -220,7 +221,6 @@ local function update_line(line_data, aggregate, looped_fuel)
         floor_id = aggregate.floor_id,
         line_id = line_data.id,
         machine_count = machine_count,
-        energy_consumption = energy_consumption,
         production_ratio = production_ratio,
         Product = Product,
         Byproduct = Byproduct,
@@ -248,7 +248,6 @@ local function update_floor(floor_data, aggregate)
             local floor_products = structures.class.list(subfloor_aggregate.Ingredient)
             update_floor(subfloor, subfloor_aggregate)  -- updates aggregate
 
-
             for _, desired_product in pairs(floor_products) do
                 local ingredient_amount = aggregate.Product[desired_product.type][desired_product.name] or 0
                 local produced_amount = desired_product.amount - ingredient_amount
@@ -258,9 +257,7 @@ local function update_floor(floor_data, aggregate)
             structures.class.balance_items(subfloor_aggregate.Ingredient, aggregate.Byproduct, aggregate.Ingredient)
             structures.class.balance_items(subfloor_aggregate.Byproduct, aggregate.Product, aggregate.Byproduct)
 
-            -- Update the main aggregate with the results
             aggregate.machine_count = aggregate.machine_count + subfloor_aggregate.machine_count
-            aggregate.energy_consumption = aggregate.energy_consumption + subfloor_aggregate.energy_consumption
 
             -- Update the parent line of the subfloor with the results from the subfloor aggregate
             solver.set_line_result {
@@ -268,7 +265,6 @@ local function update_floor(floor_data, aggregate)
                 floor_id = aggregate.floor_id,
                 line_id = line_data.id,
                 machine_count = subfloor_aggregate.machine_count,
-                energy_consumption = subfloor_aggregate.energy_consumption,
                 production_ratio = nil,
                 Product = subfloor_aggregate.Product,
                 Byproduct = subfloor_aggregate.Byproduct,
@@ -310,7 +306,6 @@ function sequential_engine.update_factory(factory_data)
     solver.set_factory_result {
         player_index = factory_data.player_index,
         factory_id = factory_data.factory_id,
-        energy_consumption = aggregate.energy_consumption,
         Product = aggregate.Product,
         Byproduct = aggregate.Byproduct,
         Ingredient = aggregate.Ingredient

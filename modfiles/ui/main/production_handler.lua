@@ -353,6 +353,7 @@ local function handle_fuel_click(player, tags, action)
             util.cursor.create_flying_text(player, {"fp.can_only_edit_fluids"})
             return
         end
+
         util.gui.open_dialog(player, {dialog="item", modal_data={fuel_id=fuel.id,
             category_id=fuel.proto.category_id, name=fuel.proto.name}})
 

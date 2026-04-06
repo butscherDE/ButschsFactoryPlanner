@@ -190,7 +190,7 @@ local function add_item_flow(line, relevant_line, item_category, button_color, m
         if type == "entity" and item.proto.special then
             number_tooltip = util.format.special_tooltip(proto.name, item.amount)
             if not relevant_line.done and item_category == "ingredient" then button_color = "cyan" end
-            first_special_index = index
+            first_special_index = first_special_index or index
         else
             -- items/s/machine does not make sense for lines with subfloors, show items/s instead
             local machine_count = (line.class == "Line") and line.machine.amount or nil

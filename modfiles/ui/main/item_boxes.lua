@@ -41,66 +41,49 @@ local function refresh_item_box(player, factory, show_floor_items, item_category
     local table_items = item_boxes_elements[item_category .. "_item_table"]
     table_items.clear()
 
-    if factory == nil or not factory.valid then
-        item_boxes_elements["ingredient_combinator_button"].visible = false
-        return 0
-    end
-
-    local floor = (show_floor_items) and util.context.get(player, "Floor") or factory.top_floor
-    local default_action = (item_category == "product" and show_floor_items and floor.level > 1)
-        and "act_on_floor_product" or ("act_on_top_level_" .. item_category)
-    local default_style = (item_category == "byproduct") and "flib_slot_button_red" or "flib_slot_button_default"
+    local valid_factory = (factory and factory.valid)
+    item_boxes_elements["ingredient_combinator_button"].visible = (valid_factory and item_category == "ingredient")
+    if not valid_factory then return 0 end
 
     local table_item_count = 0
-    local function build_item(item, index)
-        local amount, number_tooltip = nil, nil
-        local satisfaction_line = ""  ---@type LocalisedString
-        local action, style = default_action, default_style
+    local floor = (show_floor_items) and util.context.get(player, "Floor") or factory.top_floor
 
-        if item.proto.type == "entity" and item.proto.special then
-            number_tooltip = util.format.special_tooltip(item.proto.name, item.amount)
-
-            action = "act_on_top_level_special"
-        else
-            local required_amount = (item.class == "Product") and item:get_required_amount() or nil
-            amount, number_tooltip = item_views.process_item(player, item, required_amount, nil)
-            if amount == -1 then return end  -- an amount of -1 means it was below the margin of error
-
-            if item.class == "Product" and amount ~= nil and amount ~= "0" then
-                local satisfaction_line, percentage_string = util.gui.calculate_satisfaction(
-                    item.amount, required_amount)
-
-                if percentage_string == "0" then style = "flib_slot_button_red"
-                elseif percentage_string == "100" then style = "flib_slot_button_green"
-                else style = "flib_slot_button_yellow" end
-            end
-        end
-
-        local name_line = {"fp.tt_title", item.proto.localised_name}
-        local number_line = (number_tooltip) and {"", "\n", number_tooltip} or ""
-        local tooltip = {"", name_line, number_line, satisfaction_line, "\n", MODIFIER_ACTIONS[action].tooltip}
-
-        local button = table_items.add{type="sprite-button", number=amount, style=style, sprite=item.proto.sprite,
-            tags={mod="fp", on_gui_click=action, item_category=item_category, item_id=item.id, item_index=index,
-            on_gui_hover="set_tooltip", context="item_boxes"}, mouse_button_filter={"left-and-right"},
-            raise_hover_events=true}
-        tooltips.item_boxes[button.index] = tooltip
-        table_item_count = table_item_count + 1
-    end
-
-    local real_products = (item_category == "product" and (not show_floor_items or floor.level == 1))
-
-    if real_products then
+    if item_category == "product" and (not show_floor_items or floor.level == 1) then
         for product in factory:iterator() do
-            build_item(product, nil)
-        end
-    else
-        for index, item in pairs(floor[item_category .. "s"]) do
-            build_item(item, index)
-        end
-    end
+            local action = (product.proto.special) and "act_on_top_level_special_product" or "act_on_top_level_product"
+            local style = "flib_slot_button_default"
 
-    if real_products then  -- meaning allow the user to add items of this type
+            local amount, number_tooltip = nil, nil
+            local required_amount = product:get_required_amount()
+
+            if product.proto.type == "entity" and product.proto.special then
+                number_tooltip = util.format.special_tooltip(product.proto.name, required_amount)
+            else
+                amount, number_tooltip = item_views.process_item(player, product, required_amount, nil)
+                if amount == -1 then goto skip_product end  -- an amount of -1 means it was below the margin of error
+            end
+
+            --local satisfaction_line, percentage_string = nil, nil
+            local satisfaction_line, percentage_string = util.gui.calculate_satisfaction(
+                product.amount, required_amount)
+
+            if percentage_string == "0" then style = "flib_slot_button_red"
+            elseif percentage_string == "100" then style = "flib_slot_button_green"
+            else style = "flib_slot_button_yellow" end
+
+            local tooltip = {"", {"fp.tt_title", product.proto.localised_name}, "\n", number_tooltip,
+                satisfaction_line, "\n", MODIFIER_ACTIONS[action].tooltip}
+
+            local button = table_items.add{type="sprite-button", number=amount, style=style,
+                tags={mod="fp", on_gui_click=action, item_category=item_category, item_id=product.id,
+                on_gui_hover="set_tooltip", context="item_boxes"}, sprite=product.proto.sprite,
+                mouse_button_filter={"left-and-right"}, raise_hover_events=true}
+            tooltips.item_boxes[button.index] = tooltip
+            table_item_count = table_item_count + 1
+
+            ::skip_product::
+        end
+
         local button = table_items.add{type="sprite-button", sprite="utility/add", enabled=(not factory.archived),
             tags={mod="fp", on_gui_click="add_top_level_item", item_category=item_category},
             tooltip={"", {"fp.add"}, " ", {"fp.pl_" .. item_category, 1}, "\n", {"fp.shift_to_paste"}},
@@ -108,14 +91,35 @@ local function refresh_item_box(player, factory, show_floor_items, item_category
         button.style.padding = 4
         button.style.margin = 4
         table_item_count = table_item_count + 1
+    else
+        for index, item in pairs(floor[item_category .. "s"]) do
+            local action = "act_on_floor_" .. item_category
+            local amount, number_tooltip = nil, nil
+
+            if item.proto.type == "entity" and item.proto.special then
+                action = "act_on_floor_special"
+                number_tooltip = util.format.special_tooltip(item.proto.name, item.amount)
+            else
+                amount, number_tooltip = item_views.process_item(player, item, nil, nil)
+                if amount == -1 then goto skip_item end  -- an amount of -1 means it was below the margin of error
+            end
+
+            local style = (item_category == "byproduct") and "flib_slot_button_red" or "flib_slot_button_default"
+            local tooltip = {"", {"fp.tt_title", item.proto.localised_name}, "\n", number_tooltip,
+                "\n", MODIFIER_ACTIONS[action].tooltip}
+
+            local button = table_items.add{type="sprite-button", number=amount, style=style, sprite=item.proto.sprite,
+                tags={mod="fp", on_gui_click=action, item_category=item_category, item_id=item.id, item_index=index,
+                on_gui_hover="set_tooltip", context="item_boxes"}, mouse_button_filter={"left-and-right"},
+                raise_hover_events=true}
+            tooltips.item_boxes[button.index] = tooltip
+            table_item_count = table_item_count + 1
+
+            ::skip_item::
+        end
     end
 
-    if item_category == "ingredient" then
-        item_boxes_elements["ingredient_combinator_button"].visible = (table_item_count > 0)
-    end
-
-    local table_rows_required = math.ceil(table_item_count / table_items.column_count)
-    return table_rows_required
+    return math.ceil(table_item_count / table_items.column_count)
 end
 
 
@@ -287,29 +291,13 @@ listeners.gui = {
             handler = handle_item_button_click
         },
         {
-            name = "act_on_top_level_byproduct",
-            actions_table = {
-                add_recipe = {shortcut="left", limitations={archive_open=false, matrix_active=true}, show=true},
-                copy = {shortcut="shift-right"},
-                add_to_cursor = {shortcut="alt-right"},
-                factoriopedia = {shortcut="alt-left"}
-            },
-            handler = handle_item_button_click
-        },
-        {
-            name = "act_on_top_level_ingredient",
+            name = "act_on_top_level_special_product",
             actions_table = {
                 add_recipe = {shortcut="left", limitations={archive_open=false}, show=true},
-                copy = {shortcut="shift-right"},
-                add_to_cursor = {shortcut="alt-right"},
-                factoriopedia = {shortcut="alt-left"}
-            },
-            handler = handle_item_button_click
-        },
-        {
-            name = "act_on_top_level_special",
-            actions_table = {
-                add_recipe = {shortcut="left", limitations={archive_open=false}, show=true}
+                edit = {shortcut="control-left", limitations={archive_open=false}, show=true},
+                delete = {shortcut="control-right", limitations={archive_open=false}},
+                move_left = {limitations={archive_open=false}},
+                move_right = {limitations={archive_open=false}}
             },
             handler = handle_item_button_click
         },
@@ -319,6 +307,33 @@ listeners.gui = {
                 copy = {shortcut="shift-right"},
                 add_to_cursor = {shortcut="alt-right"},
                 factoriopedia = {shortcut="alt-left"}
+            },
+            handler = handle_item_button_click
+        },
+        {
+            name = "act_on_floor_byproduct",
+            actions_table = {
+                add_recipe = {shortcut="left", limitations={archive_open=false, matrix_active=true}, show=true},
+                copy = {shortcut="shift-right"},
+                add_to_cursor = {shortcut="alt-right"},
+                factoriopedia = {shortcut="alt-left"}
+            },
+            handler = handle_item_button_click
+        },
+        {
+            name = "act_on_floor_ingredient",
+            actions_table = {
+                add_recipe = {shortcut="left", limitations={archive_open=false}, show=true},
+                copy = {shortcut="shift-right"},
+                add_to_cursor = {shortcut="alt-right"},
+                factoriopedia = {shortcut="alt-left"}
+            },
+            handler = handle_item_button_click
+        },
+        {
+            name = "act_on_floor_special",
+            actions_table = {
+                add_recipe = {shortcut="left", limitations={archive_open=false}, show=true}
             },
             handler = handle_item_button_click
         },

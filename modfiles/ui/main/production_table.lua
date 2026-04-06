@@ -249,11 +249,6 @@ function builders.beacon(line, parent_flow, metadata)
     end
 end
 
-function builders.power(line, parent_flow, metadata)
-    local tooltip = {"", util.format.SI_value(line.power, "W", 5)}
-    parent_flow.add{type="label", caption=util.format.SI_value(line.power, "W", 3), tooltip=tooltip}
-end
-
 
 local function add_catalysts(flow, line, category, metadata)
     if line.class == "Floor" then return end
@@ -302,7 +297,7 @@ function builders.products(line, parent_flow, metadata)
             amount, number_tooltip = item_views.process_item(metadata.player, product, nil, machine_count)
             if amount == -1 then goto skip_product end  -- an amount of -1 means it was below the margin of error
 
-            tags.action = "act_on_line_product"
+            tags.on_gui_click = "act_on_line_product"
             tags.line_id = line.id
             tags.item_index = index
         end
@@ -344,7 +339,7 @@ function builders.byproducts(line, parent_flow, metadata)
 
             -- items/s/machine does not make sense for lines with subfloors, show items/s instead
             local machine_count = (line.class ~= "Floor") and line.machine.amount or nil
-            local amount, number_tooltip = item_views.process_item(metadata.player, byproduct, nil, machine_count)
+            amount, number_tooltip = item_views.process_item(metadata.player, byproduct, nil, machine_count)
             if amount == -1 then goto skip_byproduct end  -- an amount of -1 means it was below the margin of error
         end
 
@@ -504,7 +499,6 @@ local all_production_columns = {
     {name="percentage", caption="% ", tooltip={"fp.column_percentage_tt"}, alignment="center"},
     {name="machine", caption={"fp.pu_machine", 1}, alignment="left"},
     {name="beacon", caption={"fp.pu_beacon", 1}, alignment="left"},
-    {name="power", caption={"fp.u_power"}, alignment="center"},
     {name="products", caption={"fp.pu_product", 2}, alignment="left"},
     {name="byproducts", caption={"fp.pu_byproduct", 2}, alignment="left"},
     {name="ingredients", caption={"fp.pu_ingredient", 2}, alignment="left"},

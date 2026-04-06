@@ -25,30 +25,16 @@ local function refresh_production_bar(player)
     local production_bar_elements = ui_state.main_elements.production_bar
 
     local districts_view = ui_state.districts_view
-    local factory_valid = factory ~= nil and factory.valid
-
     production_bar_elements.factory_flow.visible = (not districts_view)
     production_bar_elements.district_flow.visible = districts_view
 
-    local valid_factory_selected = (factory and factory.valid) or false
-
     if not districts_view then
-        -- Power + Emissions
-        production_bar_elements.power_emissions_flow.visible = valid_factory_selected
-        if valid_factory_selected then
-            local top_floor = factory.top_floor
-            local label_power = production_bar_elements.power_label
-            label_power.caption = {"fp.bold_label", util.format.SI_value(top_floor.power, "W", 3)}
-            label_power.tooltip = {"", {"fp.u_power"}, ": ", util.format.SI_value(top_floor.power, "W", 5)}
-        end
-
-        -- Validity label
         local invalid_factory_selected = (factory and not factory.valid) or false
         production_bar_elements.validity_label.visible = invalid_factory_selected
     end
 
-    production_bar_elements.timescale_switch.visible = valid_factory_selected
-
+    local factory_valid = factory ~= nil and factory.valid
+    production_bar_elements.timescale_switch.visible = factory_valid
     ui_state.main_elements.views_flow.visible = factory_valid
 end
 
@@ -75,12 +61,6 @@ local function build_production_bar(player)
 
     local label_factory = flow_factory.add{type="label", caption={"fp.pu_factory", 1}, style="frame_title"}
     label_factory.style.padding = {-1, 8}
-
-    local flow_power_emissions = flow_factory.add{type="flow", direction="horizontal"}
-    flow_power_emissions.style.margin = {3, 0, 0, 12}
-    main_elements.production_bar["power_emissions_flow"] = flow_power_emissions
-    local label_power_value = flow_power_emissions.add{type="label"}
-    main_elements.production_bar["power_label"] = label_power_value
 
     local label_invalid = flow_factory.add{type="label", caption={"fp.invalid"}, style="bold_red_label"}
     label_invalid.style.top_margin = 4

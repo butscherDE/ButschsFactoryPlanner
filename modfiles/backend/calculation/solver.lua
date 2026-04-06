@@ -12,7 +12,6 @@ local function set_blank_line(player, floor, line)
         floor_id = floor.id,
         line_id = line.id,
         machine_count = 0,
-        energy_consumption = 0,
         production_ratio = (line.class == "Line") and 0 or nil,
         Product = blank_class,
         Byproduct = blank_class,
@@ -38,7 +37,6 @@ local function set_blank_factory(player, factory)
     solver.set_factory_result {
         player_index = player.index,
         factory_id = factory.id,
-        energy_consumption = 0,
         Product = blank_class,
         Byproduct = blank_class,
         Ingredient = blank_class,
@@ -327,7 +325,6 @@ function solver.set_factory_result(result)
 
     if factory.parent then factory.parent.needs_refresh = true end
 
-    factory.top_floor.power = result.energy_consumption
     factory.matrix_free_items = result.matrix_free_items or {}
 
     for product in factory:iterator() do
@@ -357,8 +354,6 @@ function solver.set_line_result(result)
 
         line.production_ratio = result.production_ratio
     end
-
-    line.power = result.energy_consumption
 
     if line.production_ratio == 0 then
         local recipe_proto = line.recipe.proto

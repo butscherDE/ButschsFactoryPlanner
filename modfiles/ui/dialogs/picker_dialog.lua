@@ -246,12 +246,10 @@ local function set_item_proto(modal_data, item_proto)
         item_choice_button.tooltip = item_proto.tooltip
     end
 
-    -- Disable definition by belt for fluids
-    local is_fluid = item_proto and item_proto.type == "fluid"
-    modal_elements.belt_choice_button.enabled = (not is_fluid)
-
-    -- Clear the belt-related fields if needed
-    if is_fluid then set_belt_proto(modal_data, nil) end
+    -- Disable definition by belt for non-items
+    local is_item = (item_proto and item_proto.type == "item") or false
+    modal_elements.belt_choice_button.enabled = is_item
+    if not is_item then set_belt_proto(modal_data, nil) end
 end
 
 local function update_dialog_submit_button(modal_elements)
@@ -293,13 +291,23 @@ local function add_item_pane(parent_flow, modal_data, item_category, item)
 
     flow_amount.add{type="label", caption={"fp.amount"}}
 
-    local item_amount = (item and defined_by == "amount") and
-        tostring(item.required_amount * modal_data.timescale) or ""
-    local amount_width = 90
+    local item_amount = ""
+    if item and defined_by == "amount" then
+        if item.proto.special then
+            if item.proto.name == "custom-electric-power" or item.proto.name == "custom-heat-power" then
+                item_amount = tostring(item.required_amount / 1e6) .. "M"
+            else  -- any of the emission types
+                item_amount = tostring(item.required_amount)
+            end
+        else
+            item_amount = tostring(item.required_amount * modal_data.timescale)
+        end
+    end
+
     local textfield_amount = flow_amount.add{type="textfield", text=item_amount,
         tags={mod="fp", on_gui_text_changed="picker_item_amount", on_gui_confirmed="picker_amount",
-        width=amount_width}, tooltip={"fp.expression_textfield"}}
-    textfield_amount.style.width = amount_width
+        width=90}, tooltip={"fp.expression_textfield"}}
+    textfield_amount.style.width = 90
     modal_elements["item_amount_textfield"] = textfield_amount
 
 

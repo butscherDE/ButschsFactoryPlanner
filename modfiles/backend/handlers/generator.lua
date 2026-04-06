@@ -513,6 +513,16 @@ function generator.items.generate()
     }
     generator_util.add_default_groups(custom_items["custom-agriculture-square"])
 
+    custom_items["custom-electric-power"] = {
+        name = "custom-electric-power",
+        localised_name = {"fp.electric_power"},
+        sprite = "fp_electric_power",
+        hidden = true,
+        order = "z-c1",
+        special = true
+    }
+    generator_util.add_default_groups(custom_items["custom-electric-power"])
+
     custom_items["custom-heat-power"] = {
         name = "custom-heat-power",
         localised_name = {"fp.heat_power"},
@@ -582,6 +592,7 @@ function generator.items.generate()
     end
 
     -- No recipes use these (yet) so they need to be added manually
+    relevant_items["entity"]["custom-electric-power"] = {ingredient_only=true}
     relevant_items["entity"]["custom-heat-power"] = {ingredient_only=true}
 
     for type, item_table in pairs(relevant_items) do

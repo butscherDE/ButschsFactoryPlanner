@@ -32,6 +32,11 @@ local function handle_item_button_click(player, tags, action)
     local item = OBJECT_INDEX[tags.item_id]
 
     if action == "create_factory" then  -- only on net ingredients
+        if item.proto.ingredient_only then
+            util.cursor.create_flying_text(player, {"fp.item_has_no_recipes"})
+            return
+        end
+
         local factory = factory_list.add_factory(player, nil, item.proto)
 
         local top_level_item = Product.init(item.proto)
@@ -203,11 +208,6 @@ local function build_district_frame(player, district, location_items)
         subheader.add{type="drop-down", items=location_items, selected_index=district.location_proto.id,
             tags={mod="fp", on_gui_selection_state_changed="change_district_location", district_id=district.id}}
     end
-
-    -- Power
-    local label_power = subheader.add{type="label", caption=util.format.SI_value(district.power, "W", 3),
-        style="bold_label", tooltip={"", {"fp.u_power"}, ": ", util.format.SI_value(district.power, "W", 5)}}
-    label_power.style.left_margin = 24
 
     -- Item toggle
     subheader.add{type="empty-widget", style="flib_horizontal_pusher"}
