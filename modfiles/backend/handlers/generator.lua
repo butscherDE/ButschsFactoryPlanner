@@ -178,8 +178,9 @@ function generator.recipes.generate()
                 recipe_copy.custom = true
                 insert_prototype(recipes, recipe_copy, nil)
             end
+        end
 
-        elseif proto.type == "resource" then
+        if proto.type == "resource" then
             local products = proto.mineable_properties.products
             if not products then goto incompatible_proto end
 
@@ -264,8 +265,14 @@ function generator.recipes.generate()
 
         elseif proto.type == "rocket-silo" then
             local categories = proto.crafting_categories
+
             for _, recipe in pairs(recipes) do
-                if categories[recipe.category] and recipe.main_product then
+                local category_match = false
+                for category, _ in pairs(recipe.categories) do
+                    if categories[category] then category_match = true; break end
+                end
+
+                if category_match and recipe.main_product then
                     local rocket_parts_ingredient = {type="item", name=recipe.main_product.name,
                         amount=proto.rocket_parts_required}
 
@@ -306,6 +313,7 @@ function generator.recipes.generate()
                     end
                 end
             end
+
         elseif proto.type == "boiler" then
             local category, input, output = generator_util.get_boiler_data(proto)
             if category == nil or proto.target_temperature == 0 then goto skip_boiler end
