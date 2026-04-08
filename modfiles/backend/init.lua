@@ -289,6 +289,7 @@ local function handle_configuration_change()
 
         -- Update calculations in case prototypes changed in a relevant way
         for district in storage.players[index].realm:iterator() do
+            district.needs_refresh = true
             for factory in district:iterator() do solver.update(player, factory) end
         end
     end
