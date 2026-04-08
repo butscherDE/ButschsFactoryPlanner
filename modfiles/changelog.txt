@@ -2,6 +2,16 @@
 Version: 0.00.00
 Date: 00. 00. 0000
   Features:
+    - 
+  Changes:
+    - 
+  Bugfixes:
+    - 
+
+---------------------------------------------------------------------------------------------------
+Version: 2.0.47
+Date: 08. 04. 2026
+  Features:
     - Implemented support for using a cursor item to configure the picker dialog (#667)
     - Implemented support for heat as an energy source for machines (#639)
   Changes:
