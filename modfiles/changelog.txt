@@ -2,9 +2,15 @@
 Version: 0.00.00
 Date: 00. 00. 0000
   Features:
-    -
+    - 
   Changes:
-    -
+    - 
+  Bugfixes:
+    - 
+
+---------------------------------------------------------------------------------------------------
+Version: 2.0.48
+Date: 08. 04. 2026
   Bugfixes:
     - Fixed a crash on startup introduced by the previous update (#732)
 
