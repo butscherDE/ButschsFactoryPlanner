@@ -41,7 +41,7 @@ local function refresh_item_box(player, factory, show_floor_items, item_category
     local table_items = item_boxes_elements[item_category .. "_item_table"]
     table_items.clear()
 
-    local valid_factory = (factory and factory.valid)
+    local valid_factory = (factory ~= nil and factory.valid)
     item_boxes_elements["ingredient_combinator_button"].visible = (valid_factory and item_category == "ingredient")
     if not valid_factory then return 0 end
 
