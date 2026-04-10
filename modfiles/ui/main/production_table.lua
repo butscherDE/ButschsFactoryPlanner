@@ -433,8 +433,9 @@ function builders.ingredients(line, parent_flow, metadata)
         if proto.type == "entity" then
             style = "flib_slot_button_disabled_small"
         elseif metadata.ingredient_satisfaction and ingredient.amount > 0 then
-            local satisfaction_line, percentage_string = util.gui.calculate_satisfaction(
+            local line, percentage_string = util.gui.calculate_satisfaction(
                 ingredient.satisfied_amount, ingredient.amount)
+            satisfaction_line = line
 
             -- We use the formatted percentage here because it smooths out the number to 3 places
             local satisfaction = tonumber(percentage_string)
