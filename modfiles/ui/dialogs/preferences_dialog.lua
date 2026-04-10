@@ -331,7 +331,8 @@ local function open_preferences_dialog(player, modal_data)
     add_default_proto_box(player, right_content_frame, "pumps", nil, "quality_picker")
     add_default_proto_box(player, right_content_frame, "wagons", 1, "quality_picker")  -- cargo-wagon
     add_default_proto_box(player, right_content_frame, "wagons", 2, "quality_picker")  -- fluid-wagon
-    right_content_frame.add{type="empty-widget", style="flib_vertical_pusher"}
+    local pusher = right_content_frame.add{type="empty-widget", style="flib_vertical_pusher"}
+    pusher.style.top_margin = -4  -- counteract vertical spacing
 end
 
 local function close_preferences_dialog(player, _)

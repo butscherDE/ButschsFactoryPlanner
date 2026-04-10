@@ -73,7 +73,9 @@ local function match_recipes(player, modal_data, proto)
 
     -- Return result, format: return recipe, error-message, filters
     if relevant_recipes_count == 0 then
-        local error = (user_disabled_recipe) and {"fp.error_no_enabled_recipe"} or {"fp.error_no_relevant_recipe"}
+        local issue = (user_disabled_recipe) and {"fp.no_recipe_enabled"} or {"fp.no_recipe_existing"}
+        local production_type = {"fp.no_recipe_" .. modal_data.production_type}
+        local error = {"fp.error_no_usable_recipe", proto.localised_name, issue, production_type}
         return nil, error, filters
     else
         return relevant_recipes, nil, filters
@@ -84,10 +86,11 @@ end
 local function attempt_adding_line(player, recipe_id, modal_data)
     local recipe_proto = prototyper.util.find("recipes", recipe_id, nil)
     local line = Line.init(recipe_proto, modal_data.production_type)
+    local recipe_name = recipe_proto.localised_name
 
     -- If finding a machine fails, this line is invalid
     if line:change_machine_to_default(player) == false then
-        util.messages.raise(player, "error", {"fp.error_no_compatible_machine"}, 1)
+        util.messages.raise(player, "error", {"fp.error_no_compatible_machine", recipe_name}, 1)
     else
         local floor = util.context.get(player, "Floor")  --[[@as Floor]]
         local relative_object = OBJECT_INDEX[modal_data.add_after_line_id]  --[[@as LineObject]]
@@ -114,7 +117,6 @@ local function attempt_adding_line(player, recipe_id, modal_data)
             if proto.temperature then line.recipe.temperatures[proto.base_name] = proto.temperature end
         end
 
-        local recipe_name = recipe_proto.localised_name
         if not line.recipe:temperature_fully_configured() then
             util.messages.raise(player, "warning", {"fp.warning_temperature_not_configured", recipe_name}, 1)
         end
