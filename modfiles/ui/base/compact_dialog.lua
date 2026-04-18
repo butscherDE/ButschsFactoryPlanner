@@ -782,7 +782,7 @@ function compact_dialog.rebuild(player, default_visibility)
 
     flow_title_bar.add{type="empty-widget", style="flib_titlebar_drag_handle",
         ignored_by_interaction=true}
-    flow_title_bar.add{type="label", caption={"mod-name.factoryplanner"}, style="fp_label_frame_title",
+    flow_title_bar.add{type="label", caption={"mod-name.butschs-factoryplanner"}, style="fp_label_frame_title",
         ignored_by_interaction=true}
     flow_title_bar.add{type="empty-widget", style="flib_titlebar_drag_handle",
         ignored_by_interaction=true}

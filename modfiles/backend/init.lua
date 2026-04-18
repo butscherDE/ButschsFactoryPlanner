@@ -212,7 +212,7 @@ end
 
 local function run_on_load(fake_load)
     if not fake_load then
-        if script.active_mods["factoryplanner"] ~= storage.installed_mods["factoryplanner"] then
+        if script.active_mods["butschs-factoryplanner"] ~= storage.installed_mods["butschs-factoryplanner"] then
             return  -- if the mod version changed, this needs to just run during migration
         end
 

@@ -238,7 +238,7 @@ local function update_floor(floor_data, aggregate)
         if subfloor ~= nil then
             -- Determine the products that are relevant for this subfloor
             local subfloor_aggregate = structures.aggregate.init(aggregate.player_index, subfloor.id)
-           for _, product in pairs(line_data.recipe_proto.products) do
+            for _, product in pairs(line_data.subfloor_products) do
                 local ingredient_amount = aggregate.Ingredient[product.type][product.name]
                 if ingredient_amount then
                     structures.class.add(subfloor_aggregate.Ingredient, product, ingredient_amount)

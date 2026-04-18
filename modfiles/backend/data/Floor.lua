@@ -11,6 +11,7 @@ local Line = require("backend.data.Line")
 ---@field previous LineObject?
 ---@field level integer
 ---@field first LineObject?
+---@field extra_products FPItemPrototype[]
 ---@field products SimpleItem[]
 ---@field byproducts SimpleItem[]
 ---@field ingredients SimpleItem[]
@@ -25,6 +26,7 @@ local function init(level)
     local object = Object.init({
         level = level,
         first = nil,
+        extra_products = {},
 
         products = {},
         byproducts = {},
@@ -154,6 +156,30 @@ function Floor:get_component_data(skip_done, component_table)
 end
 
 
+---@param item_proto FPItemPrototype
+---@return boolean added
+function Floor:add_extra_product(item_proto)
+    if self:has_extra_product(item_proto.name, item_proto.type) then return false end
+    table.insert(self.extra_products, item_proto)
+    return true
+end
+
+---@param index integer
+function Floor:remove_extra_product(index)
+    table.remove(self.extra_products, index)
+end
+
+---@param name string
+---@param type string
+---@return boolean
+function Floor:has_extra_product(name, type)
+    for _, proto in pairs(self.extra_products) do
+        if proto.name == name and proto.type == type then return true end
+    end
+    return false
+end
+
+
 ---@param object LineObject
 ---@return boolean compatible
 function Floor:check_product_compatibility(object)
@@ -206,6 +232,7 @@ end
 ---@class PackedFloor: PackedObject
 ---@field class "Floor"
 ---@field level integer
+---@field extra_products FPPackedPrototype[]?
 ---@field lines PackedLineObject[]?
 
 ---@return PackedFloor packed_self
@@ -213,6 +240,7 @@ function Floor:pack()
     return {
         class = self.class,
         level = self.level,
+        extra_products = prototyper.util.simplify_prototypes(self.extra_products, "type"),
         lines = self:_pack()
     }
 end
@@ -221,6 +249,7 @@ end
 ---@return Floor floor
 local function unpack(packed_self)
     local unpacked_self = init(packed_self.level)
+    unpacked_self.extra_products = packed_self.extra_products or {}
 
     local function unpacker(line) return (line.class == "Floor") and unpack(line) or Line.unpack(line) end
     unpacked_self.first = Object.unpack(packed_self.lines, unpacker, unpacked_self)  --[[@as LineObject]]
@@ -232,6 +261,11 @@ end
 ---@return boolean valid
 function Floor:validate()
     self.valid = self:_validate()
+
+    local extra_products, valid = prototyper.util.validate_prototype_objects(self.extra_products, "type")
+    self.extra_products = extra_products
+    self.valid = valid and self.valid
+
     return self.valid
 end
 
@@ -247,8 +281,15 @@ function Floor:repair(player)
     end
 
     if pivot then self:_repair(player, pivot) end
-    self.valid = true
 
+    -- Remove any invalid extra products
+    for index = #self.extra_products, 1, -1 do
+        if self.extra_products[index].simplified then
+            table.remove(self.extra_products, index)
+        end
+    end
+
+    self.valid = true
     return self.valid
 end
 

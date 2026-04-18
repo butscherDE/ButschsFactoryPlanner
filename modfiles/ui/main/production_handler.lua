@@ -23,6 +23,127 @@ local function handle_line_move_click(player, tags, event)
 end
 
 
+-- Merges a line into an adjacent line/floor, creating a multi-product subfloor
+local function handle_merge_click(player, tags, _)
+    local line = OBJECT_INDEX[tags.line_id]
+    local floor = line.parent
+    local factory = util.context.get(player, "Factory")  --[[@as Factory]]
+
+    if factory.archived then
+        util.messages.raise(player, "error", {"fp.error_no_new_subfloors_in_archive"}, 1)
+        return
+    end
+
+    local target = (tags.direction == "next") and line.next or line.previous
+    if target == nil then return end
+
+    local function add_products_as_extra(subfloor, recipe_line)
+        for _, product in pairs(recipe_line.recipe.proto.products) do
+            local proto = prototyper.util.find("items", product.name, product.type)
+            if proto then subfloor:add_extra_product(proto) end
+        end
+    end
+
+    if line.class == "Floor" and target.class == "Floor" then
+        -- Both are Floors: merge all lines from 'line' into 'target'
+        local lines_to_move = {}
+        for sub_line in line:iterator() do
+            table.insert(lines_to_move, sub_line)
+        end
+
+        for _, sub_line in ipairs(lines_to_move) do
+            line:remove(sub_line, true)
+            sub_line.next, sub_line.previous = nil, nil
+            target:insert(sub_line)
+        end
+
+        -- Transfer extra_products and add the first line's products
+        for _, proto in pairs(line.extra_products) do
+            target:add_extra_product(proto)
+        end
+        add_products_as_extra(target, lines_to_move[1])
+
+        floor:remove(line, true)  -- remove the now-empty Floor from parent
+
+    elseif line.class == "Floor" then
+        -- Floor absorbs the adjacent Line: add target into the existing Floor
+        floor:remove(target, true)
+        target.next, target.previous = nil, nil
+        line:insert(target)
+        add_products_as_extra(line, target)
+
+    elseif target.class == "Floor" then
+        -- Line into existing Floor: add line into the target Floor
+        floor:remove(line, true)
+        line.next, line.previous = nil, nil
+        target:insert(line)
+        add_products_as_extra(target, line)
+
+    else
+        -- Both are Lines: create a new subfloor containing both
+        local subfloor = Floor.init(floor.level + 1)
+        floor:replace(target, subfloor)
+
+        target.next, target.previous = nil, nil
+        subfloor:insert(target)  -- target becomes floor.first (the defining line)
+
+        floor:remove(line, true)
+        line.next, line.previous = nil, nil
+        subfloor:insert(line)
+
+        -- The defining line's products are handled by the solver already;
+        -- register the merged line's products as extra products
+        add_products_as_extra(subfloor, line)
+    end
+
+    solver.update(player, factory)
+    util.gui.run_refresh(player, "factory")
+end
+
+
+-- Extracts a line from a subfloor back to the parent floor
+local function handle_extract_click(player, tags, _)
+    local line = OBJECT_INDEX[tags.line_id]
+    local subfloor = line.parent
+    local factory = util.context.get(player, "Factory")  --[[@as Factory]]
+
+    if factory.archived then return end
+    if subfloor.level <= 1 then return end  -- can't extract from top floor
+
+    local grandparent = subfloor.parent  -- the floor that contains the subfloor
+    local source_line = (line.class == "Floor") and line.first or line
+
+    -- Remove this line's recipe products from extra_products
+    for _, product in pairs(source_line.recipe.proto.products) do
+        for index = #subfloor.extra_products, 1, -1 do
+            local proto = subfloor.extra_products[index]
+            if proto.name == product.name and proto.type == product.type then
+                table.remove(subfloor.extra_products, index)
+            end
+        end
+    end
+
+    -- Remove the line from the subfloor (with preserve=true to prevent auto-collapse)
+    subfloor:remove(line, true)
+    line.next, line.previous = nil, nil
+
+    -- Insert the line into the grandparent floor adjacent to the subfloor
+    if tags.direction == "previous" then
+        grandparent:insert(line, subfloor, "previous")
+    else
+        grandparent:insert(line, subfloor, "next")
+    end
+
+    -- If only the defining line remains, collapse the subfloor
+    if subfloor.first.next == nil then
+        grandparent:replace(subfloor, subfloor.first)
+    end
+
+    solver.update(player, factory)
+    util.gui.run_refresh(player, "factory")
+end
+
+
 -- Handles any line recipe, with or without subfloor
 local function handle_line_recipe_click(player, tags, action)
     local factory = util.context.get(player, "Factory")  --[[@as Factory]]
@@ -30,6 +151,13 @@ local function handle_line_recipe_click(player, tags, action)
     local relevant_line = (line.class == "Floor") and line.first or line
 
     if action == "open_subfloor" then
+        -- If line is already a Floor, just navigate into it
+        if line.class == "Floor" then
+            util.context.set(player, line)
+            util.gui.run_refresh(player, "production")
+            return
+        end
+
         if relevant_line.recipe.production_type == "consume" then
             util.messages.raise(player, "error", {"fp.error_no_subfloor_on_byproduct_recipes"}, 1)
             return
@@ -383,6 +511,14 @@ listeners.gui = {
         {
             name = "move_line",
             handler = handle_line_move_click
+        },
+        {
+            name = "merge_line",
+            handler = handle_merge_click
+        },
+        {
+            name = "extract_line",
+            handler = handle_extract_click
         },
         {
             name = "act_on_line_recipe",

@@ -88,12 +88,33 @@ local function line_ingredients(line)
 end
 
 
+-- Returns the combined products for a subfloor: defining recipe products + extra products
+local function subfloor_products(floor)
+    local products = {}
+    -- Drill down through nested Floors to find the actual defining Line
+    local defining_line = floor.first
+    while defining_line and defining_line.class == "Floor" do
+        defining_line = defining_line.first
+    end
+    if defining_line and defining_line.recipe then
+        for _, product in pairs(defining_line.recipe.proto.products) do
+            table.insert(products, product)
+        end
+    end
+    for _, proto in pairs(floor.extra_products) do
+        -- Extra products are item declarations with no predefined amount
+        table.insert(products, {name=proto.name, type=proto.type, amount=0})
+    end
+    return products
+end
+
+
 -- Generates structured data of the given floor for calculation
 local function generate_floor_data(player, factory, floor, calculate_emissions)
     local floor_data = {
         id = floor.id,
         products = (floor.level == 1) and factory_products(factory)
-            or floor.first.recipe.proto.products,
+            or subfloor_products(floor),
         lines = {}
     }
 
@@ -101,11 +122,25 @@ local function generate_floor_data(player, factory, floor, calculate_emissions)
         local line_data = { id = line.id }
 
         if line.class == "Floor" then
-            line_data.recipe_proto = line.first.recipe.proto
+            -- Drill down through nested Floors to find the actual defining Line
+            local defining_line = line.first
+            while defining_line and defining_line.class == "Floor" do
+                defining_line = defining_line.first
+            end
+            if defining_line and defining_line.recipe then
+                line_data.recipe_proto = defining_line.recipe.proto
+            else
+                -- Fallback: use a blank for malformed subfloors
+                set_blank_line(player, floor, line)
+                goto continue_line
+            end
             line_data.subfloor = generate_floor_data(player, factory, line, calculate_emissions)
+            line_data.subfloor_products = line_data.subfloor.products
             table.insert(floor_data.lines, line_data)
         else
-            local relevant_line = (line.parent.level > 1) and line.parent.first or nil  --[[@as Line]]
+            local first = line.parent.first
+            while first and first.class == "Floor" do first = first.first end
+            local relevant_line = (line.parent.level > 1 and first and first.class == "Line") and first or nil  --[[@as Line]]
             local ingredients = line_ingredients(line)  -- builds in chosen temperatures
 
             local fuel = line.machine.fuel
@@ -160,6 +195,7 @@ local function generate_floor_data(player, factory, floor, calculate_emissions)
                 table.insert(floor_data.lines, line_data)
             end
         end
+        ::continue_line::
     end
 
     return floor_data

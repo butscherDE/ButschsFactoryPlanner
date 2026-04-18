@@ -1,7 +1,7 @@
 {
-    "name": "factoryplanner",
-    "version": "2.0.49",
-    "title": "Factory Planner",
+    "name": "butschs-factoryplanner",
+    "version": "2.0.50",
+    "title": "Butschs Factory Planner",
     "author": "Therenas",
     "factorio_version": "2.0",
     "dependencies": [

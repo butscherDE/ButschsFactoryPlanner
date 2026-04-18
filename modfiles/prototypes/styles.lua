@@ -67,7 +67,7 @@ styles["fp_frame_semitransparent"] = {
     graphical_set = {
         base = {
             type = "composition",
-            filename = "__factoryplanner__/graphics/semitransparent_pixel.png",
+            filename = "__butschs-factoryplanner__/graphics/semitransparent_pixel.png",
             corner_size = 1,
             position = {0, 0}
         }

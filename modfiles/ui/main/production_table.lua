@@ -27,8 +27,11 @@ end
 local builders = {}
 
 function builders.move(line, parent_flow, metadata)
-    local function create_move_button(flow, direction, first_subfloor_line)
-        local enabled = not (first_subfloor_line or metadata.archive_open)
+    local first_subfloor_line = (line.parent.level > 1 and line.previous == nil)
+    local on_subfloor = (line.parent.level > 1)
+
+    local function create_move_button(flow, direction, disabled_override)
+        local enabled = not (first_subfloor_line or metadata.archive_open or disabled_override)
         if direction == "next" and line.next == nil then enabled = false
         elseif direction == "previous" then
             if line.previous == nil then enabled = false
@@ -48,13 +51,53 @@ function builders.move(line, parent_flow, metadata)
         metadata.tooltips[button.index] = move_tooltip
     end
 
-    local move_flow = parent_flow.add{type="flow", direction="vertical"}
+    local function create_merge_button(flow, direction)
+        local target = (direction == "next") and line.next or line.previous
+        local enabled = (target ~= nil) and not first_subfloor_line and not metadata.archive_open
+        local up_down = (direction == "next") and "down" or "up"
+        local merge_tooltip = (enabled) and {"fp.merge_line_" .. up_down} or ""
+
+        local button = flow.add{type="sprite-button", style="fp_sprite-button_move",
+            sprite="fp_" .. ((direction == "next") and "collapse" or "expand"),
+            tags={mod="fp", on_gui_click="merge_line", direction=direction, line_id=line.id,
+            on_gui_hover="set_tooltip", context="production_table"},
+            enabled=enabled, mouse_button_filter={"left"}, raise_hover_events=true}
+        button.style.size = {18, 14}
+        button.style.padding = -1
+        metadata.tooltips[button.index] = merge_tooltip
+    end
+
+    local function create_extract_button(flow, direction)
+        local enabled = not first_subfloor_line and not metadata.archive_open
+        local up_down = (direction == "previous") and "up" or "down"
+        local extract_tooltip = (enabled) and {"fp.extract_line_" .. up_down} or ""
+
+        local button = flow.add{type="sprite-button", style="fp_sprite-button_move",
+            sprite="fp_" .. ((direction == "previous") and "expand" or "collapse"),
+            tags={mod="fp", on_gui_click="extract_line", direction=direction, line_id=line.id,
+            on_gui_hover="set_tooltip", context="production_table"},
+            enabled=enabled, mouse_button_filter={"left"}, raise_hover_events=true}
+        button.style.size = {18, 14}
+        button.style.padding = -1
+        metadata.tooltips[button.index] = extract_tooltip
+    end
+
+    local outer_flow = parent_flow.add{type="flow", direction="horizontal"}
+    outer_flow.style.horizontal_spacing = 0
+
+    local move_flow = outer_flow.add{type="flow", direction="vertical"}
     move_flow.style.vertical_spacing = 0
     move_flow.style.top_padding = 2
 
-    local first_subfloor_line = (line.parent.level > 1 and line.previous == nil)
-    create_move_button(move_flow, "previous", first_subfloor_line)
-    create_move_button(move_flow, "next", first_subfloor_line)
+    create_move_button(move_flow, "previous", false)
+    create_move_button(move_flow, "next", false)
+
+    local action_flow = outer_flow.add{type="flow", direction="vertical"}
+    action_flow.style.vertical_spacing = 0
+    action_flow.style.top_padding = 2
+
+    create_merge_button(action_flow, "previous")
+    create_merge_button(action_flow, "next")
 end
 
 function builders.done(line, parent_flow, metadata)
@@ -62,6 +105,11 @@ function builders.done(line, parent_flow, metadata)
     if metadata.fold_out_subfloors and first_subfloor_line then return end
 
     local relevant_line = (line.class == "Floor") and line.first or line
+    -- Guard against nested Floors where first isn't a Line
+    if relevant_line == nil or relevant_line.class == "Floor" then
+        parent_flow.add{type="empty-widget"}
+        return
+    end
     parent_flow.add{type="checkbox", state=relevant_line.done, mouse_button_filter={"left"},
         tags={mod="fp", on_gui_checked_state_changed="checkmark_line", line_id=line.id}}
 end
@@ -72,6 +120,22 @@ function builders.recipe(line, parent_flow, metadata, indent)
     parent_flow.style.vertical_align = "center"
     parent_flow.style.horizontal_spacing = 3
     parent_flow.style.left_margin = indent * 12
+
+    -- Nested Floor whose first isn't a Line: render a clickable letter button
+    if relevant_line == nil or relevant_line.class == "Floor" then
+        local action = "act_on_line_recipe"
+        metadata.floor_letter_index = (metadata.floor_letter_index or 0) + 1
+        local letter = string.char(64 + metadata.floor_letter_index)
+        local style = "flib_slot_button_blue_small"
+        local tooltip = {"", {"fp.tt_title", letter}, {"fp.merged_subfloor"}, "\n", MODIFIER_ACTIONS[action].tooltip}
+
+        local button = parent_flow.add{type="sprite-button", caption=letter, style=style,
+            tags={mod="fp", on_gui_click=action, line_id=line.id, on_gui_hover="set_tooltip",
+            context="production_table"}, mouse_button_filter={"left-and-right"}, raise_hover_events=true}
+        button.style.size = 36
+        metadata.tooltips[button.index] = tooltip
+        return
+    end
 
     local line_active = (relevant_line.production_ratio > 0)
     local style = (line_active) and "flib_slot_button_default_small" or "flib_slot_button_red_small"
@@ -102,9 +166,11 @@ function builders.recipe(line, parent_flow, metadata, indent)
 
     local first_subfloor_line = (line.parent.level > 1 and line.previous == nil)
     local indication = first_subfloor_line and {"fp.floor_recipe"} or ""
+    local is_multi_product_floor = (line.class == "Floor" and #line.extra_products > 0)
+
     if line.class == "Floor" then
         style = (line_active) and "flib_slot_button_blue_small" or "flib_slot_button_purple_small"
-        indication = {"fp.recipe_subfloor_attached"}
+        indication = is_multi_product_floor and {"fp.merged_subfloor"} or {"fp.recipe_subfloor_attached"}
 
     -- Byproduct-consuming lines can't have subfloors, so this if-branching works
     elseif relevant_line.recipe.production_type == "consume" then
@@ -119,14 +185,29 @@ function builders.recipe(line, parent_flow, metadata, indent)
     local effects_section = (line.class == "Line") and format_effects_tooltip(relevant_line.effects_tooltip) or ""
     local tooltip = {"", first_line, indication, status_info, effects_section, "\n", MODIFIER_ACTIONS[action].tooltip}
 
-    local button = parent_flow.add{type="sprite-button", sprite=recipe_proto.sprite, style=style,
-        tags={mod="fp", on_gui_click=action, line_id=line.id, on_gui_hover="set_tooltip", context="production_table"},
-        mouse_button_filter={"left-and-right"}, raise_hover_events=true}
-    metadata.tooltips[button.index] = tooltip
+    if is_multi_product_floor then
+        -- Show a letter label for multi-product subfloors
+        metadata.floor_letter_index = (metadata.floor_letter_index or 0) + 1
+        local letter = string.char(64 + metadata.floor_letter_index)  -- A=65, B=66, etc.
+        local button = parent_flow.add{type="sprite-button", caption=letter, style=style,
+            tags={mod="fp", on_gui_click=action, line_id=line.id, on_gui_hover="set_tooltip",
+            context="production_table"}, mouse_button_filter={"left-and-right"}, raise_hover_events=true}
+        button.style.size = 36
+        metadata.tooltips[button.index] = tooltip
+    else
+        local button = parent_flow.add{type="sprite-button", sprite=recipe_proto.sprite, style=style,
+            tags={mod="fp", on_gui_click=action, line_id=line.id, on_gui_hover="set_tooltip",
+            context="production_table"}, mouse_button_filter={"left-and-right"}, raise_hover_events=true}
+        metadata.tooltips[button.index] = tooltip
+    end
 end
 
 function builders.percentage(line, parent_flow, metadata)
     local relevant_line = (line.class == "Floor") and line.first or line
+    if relevant_line == nil or relevant_line.class == "Floor" then
+        parent_flow.add{type="empty-widget"}
+        return
+    end
 
     local enabled = (not metadata.archive_open and not metadata.matrix_solver_active)
     local textfield_percentage = parent_flow.add{type="textfield", text=tostring(relevant_line.percentage),
@@ -485,6 +566,10 @@ end
 
 function builders.line_comment(line, parent_flow, _)
     local relevant_line = (line.class == "Floor") and line.first or line
+    if relevant_line == nil or relevant_line.class == "Floor" then
+        parent_flow.add{type="empty-widget"}
+        return
+    end
     local textfield_comment = parent_flow.add{type="textfield", text=(relevant_line.comment or ""),
         tags={mod="fp", on_gui_text_changed="line_comment", line_id=line.id}}
     textfield_comment.style.width = 250

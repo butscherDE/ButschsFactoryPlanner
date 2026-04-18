@@ -3,7 +3,7 @@
 data:extend{{
     type = "selection-tool",
     name = "fp_beacon_selector",
-    icon = "__factoryplanner__/graphics/beacon_selector.png",
+    icon = "__butschs-factoryplanner__/graphics/beacon_selector.png",
     icon_size = 32,
     flags = {"only-in-cursor"},
     subgroup = "other",

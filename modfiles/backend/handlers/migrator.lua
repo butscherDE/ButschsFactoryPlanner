@@ -37,6 +37,7 @@ local migration_masterlist = {  ---@type MigrationMasterList
     [26] = {version="2.0.43", migration=require("backend.migrations.migration_2_0_43")},
     [27] = {version="2.0.44", migration=require("backend.migrations.migration_2_0_44")},
     [28] = {version="2.0.45", migration=require("backend.migrations.migration_2_0_45")},
+    [29] = {version="2.0.50", migration=require("backend.migrations.migration_2_0_50")},
 }
 
 
@@ -61,7 +62,7 @@ end
 ---@param comparison_version VersionString?
 ---@return Migration[]?
 function migrator.determine_migrations(comparison_version)
-    local previous_version = storage.installed_mods["factoryplanner"]
+    local previous_version = storage.installed_mods["butschs-factoryplanner"]
 
     -- 1.1.60 is the first version that can be properly migrated (doesn't apply to export strings)
     if not comparison_version and helpers.compare_versions(previous_version, "1.1.59") < 0 then return nil end
@@ -96,7 +97,8 @@ end
 -- Applies any appropriate migrations to the given export_table's factories
 ---@param export_table ExportTable
 function migrator.migrate_export_table(export_table)
-    local export_version = export_table.export_modset["factoryplanner"]
+    local export_version = export_table.export_modset["butschs-factoryplanner"]
+        or export_table.export_modset["factoryplanner"]
     export_table.factories = export_table.factories or export_table.subfactories  -- migration
     local migrations = migrator.determine_migrations(export_version)  ---@cast migrations -nil
 

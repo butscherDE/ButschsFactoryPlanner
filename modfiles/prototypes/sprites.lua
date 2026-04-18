@@ -3,7 +3,7 @@
 local function add_sprite(name, filename, size, mipmaps)
     data:extend{{
         type = "sprite", name = "fp_" .. name,
-        filename = "__factoryplanner__/graphics/" .. (filename or (name .. ".png")),
+        filename = "__butschs-factoryplanner__/graphics/" .. (filename or (name .. ".png")),
         size = size, mipmap_count = mipmaps, flags = {"gui-icon"}
     }}
 end
