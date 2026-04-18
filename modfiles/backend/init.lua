@@ -61,6 +61,7 @@ function reload_preferences(player_table)
     reload("pause_on_interface", false)
     reload("utility_scopes", {components = "Factory"})
     reload("recipe_filters", {disabled = false, hidden = false})
+    reload("picker_researched_only", false)
     reload("compact_ingredients", false)
     reload("fold_out_subfloors", false)
 

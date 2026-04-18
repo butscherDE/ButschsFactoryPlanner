@@ -15,6 +15,7 @@ end
 local function search_picker_items(player, search_term)
     local modal_data = util.globals.modal_data(player)
     local modal_elements = modal_data.modal_elements
+    local researched_only = modal_data.researched_only
 
     -- Groups are indexed continuously, so using ipairs here is fine
     local first_visible_group_id = nil
@@ -24,8 +25,9 @@ local function search_picker_items(player, search_term)
         for _, subgroup_table in pairs(group.subgroup_tables) do
             for item_data, element in pairs(subgroup_table) do
                 -- Can only get to this if translations are complete, as the textfield is disabled otherwise
-                local visible = (search_term == item_data.name)
-                    or (string.find(item_data.translated_name, search_term, 1, true) ~= nil)
+                local visible = ((search_term == item_data.name)
+                    or (string.find(item_data.translated_name, search_term, 1, true) ~= nil))
+                    and (not researched_only or item_data.researched)
                 element.visible = visible
                 any_item_visible = any_item_visible or visible
             end
@@ -58,6 +60,30 @@ local function add_item_picker(parent_flow, player)
     label_warning.style.margin = 12
     label_warning.visible = false  -- There can't be a warning upon first opening of the dialog
     modal_elements["warning_label"] = label_warning
+
+    -- Precompute which items are researched (have at least one enabled, non-hidden recipe producing them)
+    -- Excludes hidden recipes like mining, pumping, boiling, spoiling which are always enabled
+    local researched_items = {}
+    for _, force_recipe in pairs(player.force.recipes) do
+        if force_recipe.enabled and not force_recipe.hidden then
+            for _, product in pairs(force_recipe.products) do
+                researched_items[product.name] = true
+            end
+        end
+    end
+    ui_state.modal_data.researched_items = researched_items
+
+    -- Researched-only filter checkbox
+    local researched_only = player_table.preferences.picker_researched_only or false
+    ui_state.modal_data.researched_only = researched_only
+    local filter_flow = parent_flow.add{type="flow", direction="horizontal"}
+    filter_flow.style.vertical_align = "center"
+    filter_flow.style.bottom_margin = 4
+    local checkbox = filter_flow.add{type="checkbox", state=researched_only,
+        caption={"fp.picker_researched_only"},
+        tags={mod="fp", on_gui_checked_state_changed="toggle_picker_researched_filter"},
+        mouse_button_filter={"left"}}
+    modal_elements["researched_only_checkbox"] = checkbox
 
     -- Item picker (optimized for performance, so not everything is done in the obvious way)
     local groups_per_row = MAGIC_NUMBERS.groups_per_row
@@ -154,6 +180,7 @@ local function add_item_picker(parent_flow, player)
             local item_name = item_proto.name
             local existing_product = existing_products[item_name]
             local button_style = (existing_product) and "flib_slot_button_red" or "flib_slot_button_default"
+            local is_researched = (researched_items[item_proto.base_name or item_name] ~= nil)
 
             local name = (item_proto.temperature) and item_proto.base_name or item_proto.name
             local elem_tooltip = (item_proto.type ~= "entity") and {type=item_proto.type, name=name} or nil
@@ -161,12 +188,13 @@ local function add_item_picker(parent_flow, player)
             local button_item = table_subgroup.add{type="sprite-button", sprite=item_proto.sprite, style=button_style,
                 tags={mod="fp", on_gui_click="select_picker_item", item_id=item_proto.id,
                 category_id=item_proto.category_id, enabled=(existing_product == nil)},
-                tooltip=item_proto.tooltip, elem_tooltip=elem_tooltip, mouse_button_filter={"left"}}
+                tooltip=item_proto.tooltip, elem_tooltip=elem_tooltip, mouse_button_filter={"left"},
+                visible=(not researched_only or is_researched)}
 
             -- Figure out the translated name here so search doesn't have to repeat the work for every character
             local translated_name = (translations) and translations[item_proto.type][item_name] or nil
             translated_name = (translated_name) and helpers.multilingual_to_lower(translated_name) or item_name
-            subgroup_table[{name=item_name, translated_name=translated_name}] = button_item
+            subgroup_table[{name=item_name, translated_name=translated_name, researched=is_researched}] = button_item
         end
     end
 
@@ -511,6 +539,23 @@ listeners.gui = {
             handler = (function(player, _, event)
                 local confirmed = util.gui.confirm_expression_field(event.element, true)
                 if confirmed then util.gui.close_dialog(player, "submit") end
+            end)
+        }
+    },
+    on_gui_checked_state_changed = {
+        {
+            name = "toggle_picker_researched_filter",
+            handler = (function(player, _, event)
+                local checked = event.element.state
+                local modal_data = util.globals.modal_data(player)
+                modal_data.researched_only = checked
+                util.globals.preferences(player).picker_researched_only = checked
+
+                -- Re-apply visibility using the current search term
+                local search_textfield = modal_data.modal_elements.search_textfield
+                local search_term = (search_textfield and search_textfield.text) or ""
+                search_term = helpers.multilingual_to_lower(search_term)
+                search_picker_items(player, search_term)
             end)
         }
     }
