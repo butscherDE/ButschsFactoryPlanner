@@ -23,10 +23,13 @@ fi
 
 TARGET="$MODS_DIR/$MOD_FOLDER"
 
-if [ -d "$TARGET" ]; then
-    echo "Removing existing $MOD_FOLDER ..."
-    rm -rf "$TARGET"
-fi
+# Remove any existing versions of the mod (including different version numbers)
+for old in "$MODS_DIR/${MOD_NAME}_"*/; do
+    if [ -d "$old" ]; then
+        echo "Removing old version $(basename "$old") ..."
+        rm -rf "$old"
+    fi
+done
 
 echo "Deploying $MOD_FOLDER to $MODS_DIR ..."
 cp -R "$SCRIPT_DIR/modfiles" "$TARGET"

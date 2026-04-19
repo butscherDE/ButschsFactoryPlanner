@@ -22,9 +22,10 @@ if (-not (Test-Path $ModsDir)) {
 
 $Target = Join-Path $ModsDir $ModFolder
 
-if (Test-Path $Target) {
-    Write-Host "Removing existing $ModFolder ..."
-    Remove-Item -Recurse -Force $Target
+# Remove any existing versions of the mod (including different version numbers)
+Get-ChildItem -Path $ModsDir -Directory -Filter "${ModName}_*" | ForEach-Object {
+    Write-Host "Removing old version $($_.Name) ..."
+    Remove-Item -Recurse -Force $_.FullName
 }
 
 Write-Host "Deploying $ModFolder to $ModsDir ..."

@@ -107,6 +107,17 @@ local function add_recipe_button(parent_flow, line, relevant_line, metadata)
         tags={mod="fp", on_gui_click="act_on_compact_recipe", line_id=line.id, on_gui_hover="set_tooltip",
         context="compact_dialog"}, mouse_button_filter={"left-and-right"}, raise_hover_events=true}
     metadata.tooltips[button.index] = tooltip
+
+    -- Blueprint generation button for concrete lines (not subfloors)
+    if line.class == "Line" then
+        local bp_tooltip = {"fp.generate_line_blueprint_tt"}
+        local bp_button = parent_flow.add{type="sprite-button", sprite="item/blueprint",
+            tags={mod="fp", on_gui_click="generate_compact_line_blueprint", line_id=line.id,
+            on_gui_hover="set_tooltip", context="compact_dialog"},
+            style="fp_sprite-button_inset", mouse_button_filter={"left"}, raise_hover_events=true}
+        bp_button.style.size = 28
+        metadata.tooltips[bp_button.index] = bp_tooltip
+    end
 end
 
 local function add_modules_flow(parent_flow, parent_type, line, metadata)
@@ -588,6 +599,11 @@ local function handle_item_click(player, tags, action)
     end
 end
 
+local function handle_generate_blueprint(player, tags, _)
+    local line = OBJECT_INDEX[tags.line_id]
+    util.cursor.set_line_blueprint(player, line)
+end
+
 local function handle_hover_change(player, tags, event)
     local proto = nil
     if tags.floor_id then
@@ -676,6 +692,10 @@ factory_listeners.gui = {
                 factoriopedia = {shortcut="alt-right", show=true}
             },
             handler = handle_item_click
+        },
+        {
+            name = "generate_compact_line_blueprint",
+            handler = handle_generate_blueprint
         }
     },
     on_gui_checked_state_changed = {
