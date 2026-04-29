@@ -156,6 +156,49 @@ function Floor:get_component_data(skip_done, component_table)
 end
 
 
+---@alias RemainingDemandTable { [string]: { proto: FPItemPrototype, amount: number } }
+
+-- Returns the net item demand from lines not yet marked as done
+---@param demand_table RemainingDemandTable?
+---@return RemainingDemandTable demand_table
+---@return boolean has_done
+function Floor:get_remaining_demand(demand_table)
+    local demand = demand_table or {}
+    local has_done = false
+
+    local function add_amount(proto, amount)
+        local key = proto.type .. "-" .. proto.name
+        local entry = demand[key]
+        if entry == nil then
+            demand[key] = {proto = proto, amount = amount}
+        else
+            entry.amount = entry.amount + amount
+        end
+    end
+
+    for line in self:iterator() do
+        if line.class == "Floor" then
+            local _, sub_has_done = line:get_remaining_demand(demand)
+            has_done = has_done or sub_has_done
+        elseif line.done then
+            has_done = true
+        else
+            for _, item in pairs(line.ingredients) do
+                add_amount(item.proto, item.amount)
+            end
+            for _, item in pairs(line.products) do
+                add_amount(item.proto, -item.amount)
+            end
+            for _, item in pairs(line.byproducts) do
+                add_amount(item.proto, -item.amount)
+            end
+        end
+    end
+
+    return demand, has_done
+end
+
+
 ---@param item_proto FPItemPrototype
 ---@return boolean added
 function Floor:add_extra_product(item_proto)

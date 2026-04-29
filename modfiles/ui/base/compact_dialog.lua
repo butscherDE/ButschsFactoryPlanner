@@ -427,6 +427,62 @@ local function refresh_compact_production(player, factory)
     end
 end
 
+local function refresh_compact_remaining_demand(player, factory)
+    local compact_elements = util.globals.ui_state(player).compact_elements
+    if not compact_elements.demand_frame then return end
+
+    local preferences = util.globals.preferences(player)
+
+    local visible = (preferences.done_column == true)
+    if visible then
+        local demand, has_done = factory.top_floor:get_remaining_demand()
+        if not has_done then visible = false end
+
+        if visible then
+            local items = {}
+            for _, entry in pairs(demand) do
+                if entry.amount > MAGIC_NUMBERS.margin_of_error then
+                    table.insert(items, entry)
+                end
+            end
+            if #items == 0 then visible = false end
+
+            if visible then
+                table.sort(items, function(a, b)
+                    if a.proto.type ~= b.proto.type then return a.proto.type < b.proto.type end
+                    return a.proto.name < b.proto.name
+                end)
+
+                local frame_width = compact_elements.compact_frame.style.maximal_width
+                local available_space = frame_width - (2*12) - 16
+                local column_count = math.max(math.floor(available_space / MAGIC_NUMBERS.item_button_size), 1)
+
+                local demand_item_frame = compact_elements.demand_item_frame
+                demand_item_frame.clear()
+                local item_table = demand_item_frame.add{type="table", column_count=column_count,
+                    style="filter_slot_table"}
+
+                local tooltips = util.globals.ui_state(player).tooltips
+                for _, entry in pairs(items) do
+                    local diff_string, amount_tooltip = item_views.process_item(
+                        player, entry, entry.amount, nil)
+                    if diff_string ~= -1 then
+                        local title_line = {"fp.tt_title", entry.proto.localised_name}
+                        local tooltip = {"", title_line, "\n", {"fp.remaining_demand_amount", amount_tooltip}}
+                        local button = item_table.add{type="sprite-button", number=diff_string,
+                            style="flib_slot_button_yellow", sprite=entry.proto.sprite,
+                            tags={mod="fp", on_gui_hover="set_tooltip", context="compact_dialog"},
+                            raise_hover_events=true}
+                        tooltips.compact_dialog[button.index] = tooltip
+                    end
+                end
+            end
+        end
+    end
+
+    compact_elements.demand_frame.visible = visible
+end
+
 local function refresh_compact_factory(player)
     local factory = util.context.get(player, "Factory")  --[[@as Factory?]]
     if not factory or not factory.valid then return end
@@ -436,6 +492,7 @@ local function refresh_compact_factory(player)
     ui_state.compact_elements.item_buttons = {}
 
     refresh_compact_header(player, factory)
+    refresh_compact_remaining_demand(player, factory)
     refresh_compact_production(player, factory)
 end
 
@@ -496,6 +553,15 @@ local function build_compact_factory(player)
     local ingredients_frame = content_flow.add{type="frame", direction="vertical",
         style="inside_deep_frame"}
     compact_elements["ingredients_frame"] = ingredients_frame
+
+    -- Remaining demand frame
+    local demand_frame = content_flow.add{type="frame", direction="vertical", style="inside_deep_frame"}
+    demand_frame.style.padding = {4, 8}
+    compact_elements["demand_frame"] = demand_frame
+    demand_frame.add{type="label", caption={"fp.remaining_demand"}, style="caption_label"}
+    local demand_item_frame = demand_frame.add{type="frame", style="slot_button_deep_frame"}
+    demand_item_frame.style.minimal_height = MAGIC_NUMBERS.item_button_size
+    compact_elements["demand_item_frame"] = demand_item_frame
 
     -- Production table
     local production_frame = content_flow.add{type="frame", direction="vertical",
@@ -823,10 +889,12 @@ function compact_dialog.rebuild(player, default_visibility)
 end
 
 function compact_dialog.toggle(player)
-    local frame_compact_dialog = util.globals.ui_state(player).compact_elements.compact_frame
+    local compact_elements = util.globals.ui_state(player).compact_elements
+    local frame_compact_dialog = compact_elements.compact_frame
     -- Doesn't set player.opened so other GUIs like the inventory can be opened when building
 
-    if frame_compact_dialog == nil or not frame_compact_dialog.valid then
+    if frame_compact_dialog == nil or not frame_compact_dialog.valid
+            or not compact_elements.demand_frame then
         compact_dialog.rebuild(player, true)  -- refreshes on its own
     else
         local new_dialog_visibility = not frame_compact_dialog.visible
